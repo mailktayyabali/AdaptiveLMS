@@ -4,16 +4,44 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import connectDB from './db.js';
 import User from './models/User.js';
 
 dotenv.config();
 
 const app = express();
+
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
-connectDB();
 
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many requests, please try again later.'
+    }
+});
+app.use(generalLimiter);
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many login/register attempts, please try again later.'
+    }
+});
+app.use(['/login', '/register'], authLimiter);
+
+connectDB();
 app.get('/', (req, res) => {
     res.send('Backend is working');
 });
