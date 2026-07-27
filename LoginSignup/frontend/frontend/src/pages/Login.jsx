@@ -1,23 +1,38 @@
 import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../services/authServices.js";
+import { loginUser, sendOtp, verifyOtpLogin, resetPasswordOtp } from "../services/authServices.js";
 import { ProfileContext } from "../context/ProfileContext.jsx";
 
 export default function Login({ toggleMode }) {
-    const [username, setUsername] = useState(''); // Can be username or email
+    // Mode: 'password' or 'otp'
+    const [authMethod, setAuthMethod] = useState('password');
+    
+    // Password states
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+
+    // OTP states
+    const [otpStep, setOtpStep] = useState(1); // 1: Send OTP, 2: Verify OTP
+    const [otpEmail, setOtpEmail] = useState('');
+    const [otpCode, setOtpCode] = useState('');
+    const [isResetPassword, setIsResetPassword] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+
+    // Feedback & Loading
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
     
     const { login } = useContext(ProfileContext);
     const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
+    const handlePasswordLogin = async (e) => {
         e.preventDefault();
         if (!username || !password) {
             return setError('Please fill in all fields');
         }
         setError('');
+        setSuccessMsg('');
         setLoading(true);
         try {
             const result = await loginUser(username, password);
@@ -34,26 +49,109 @@ export default function Login({ toggleMode }) {
         }
     };
 
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        if (!otpEmail) {
+            return setError('Please enter your email address');
+        }
+        setError('');
+        setSuccessMsg('');
+        setLoading(true);
+        try {
+            const res = await sendOtp(otpEmail);
+            setSuccessMsg(res.message || 'OTP sent to your email successfully!');
+            setOtpStep(2);
+        } catch (err) {
+            setError(err.message || 'Failed to send OTP email.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtpLogin = async (e) => {
+        e.preventDefault();
+        if (!otpCode) {
+            return setError('Please enter the 6-digit OTP code');
+        }
+        setError('');
+        setSuccessMsg('');
+        setLoading(true);
+        try {
+            if (isResetPassword) {
+                if (!newPassword || newPassword.length < 6) {
+                    setLoading(false);
+                    return setError('New password must be at least 6 characters');
+                }
+                const resetRes = await resetPasswordOtp(otpEmail, otpCode, newPassword);
+                setSuccessMsg(resetRes.message || 'Password reset successfully! Logging you in...');
+                const loginRes = await loginUser(otpEmail, newPassword);
+                if (loginRes.success && loginRes.token) {
+                    login(loginRes.token);
+                    navigate('/profile');
+                }
+            } else {
+                const res = await verifyOtpLogin(otpEmail, otpCode);
+                if (res.success && res.token) {
+                    login(res.token);
+                    navigate('/profile');
+                } else {
+                    setError(res.message || 'OTP verification failed.');
+                }
+            }
+        } catch (err) {
+            setError(err.message || 'Invalid or expired OTP code');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="auth-card-content">
             <div className="auth-header">
-                <h2>Welcome Back</h2>
-                <p>Sign in to access your secure portal</p>
+                <h2>{authMethod === 'password' ? 'Welcome Back' : (otpStep === 1 ? 'Login with OTP' : (isResetPassword ? 'Reset Password' : 'Verify OTP'))}</h2>
+                <p>
+                    {authMethod === 'password' 
+                        ? 'Sign in to access your secure portal' 
+                        : (otpStep === 1 ? 'Enter your email to receive an OTP code' : `Code sent to ${otpEmail}`)}
+                </p>
             </div>
-            
+
+            {/* Mode Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <button
+                    type="button"
+                    onClick={() => { setAuthMethod('password'); setError(''); setSuccessMsg(''); }}
+                    className={authMethod === 'password' ? 'button-primary' : 'btn-logout'}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.85rem' }}
+                >
+                    Password Login
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { setAuthMethod('otp'); setOtpStep(1); setError(''); setSuccessMsg(''); }}
+                    className={authMethod === 'otp' ? 'button-primary' : 'btn-logout'}
+                    style={{ flex: 1, padding: '8px', fontSize: '0.85rem' }}
+                >
+                    Login with OTP
+                </button>
+            </div>
+
             {error && (
-                <div className="status error-status animate-fade-in">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="status-icon">
-                        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
-                    </svg>
+                <div className="status error-status">
                     <span>{error}</span>
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="auth-form">
-                <div className="field">
-                    <label htmlFor="login-username">Username or Email</label>
-                    <div className="input-container">
+            {successMsg && (
+                <div className="status ok-status">
+                    <span>{successMsg}</span>
+                </div>
+            )}
+
+            {authMethod === 'password' && (
+                <form onSubmit={handlePasswordLogin} className="auth-form">
+                    <div className="field">
+                        <label htmlFor="login-username">Username or Email</label>
                         <input
                             id="login-username"
                             type="text"
@@ -63,11 +161,19 @@ export default function Login({ toggleMode }) {
                             required
                         />
                     </div>
-                </div>
 
-                <div className="field">
-                    <label htmlFor="login-password">Password</label>
-                    <div className="input-container">
+                    <div className="field">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label htmlFor="login-password">Password</label>
+                            <button
+                                type="button"
+                                onClick={() => { setAuthMethod('otp'); setOtpStep(1); setIsResetPassword(true); setError(''); setSuccessMsg(''); }}
+                                className="text-link-btn"
+                                style={{ fontSize: '0.8rem' }}
+                            >
+                                Forgot Password?
+                            </button>
+                        </div>
                         <input
                             id="login-password"
                             type="password"
@@ -77,17 +183,116 @@ export default function Login({ toggleMode }) {
                             required
                         />
                     </div>
-                </div>
 
-                <button type="submit" className="button-primary" disabled={loading}>
-                    {loading ? (
-                        <>
-                            <span className="spinner"></span>
-                            <span>Signing in...</span>
-                        </>
-                    ) : 'Sign In'}
-                </button>
-            </form>
+                    <button type="submit" className="button-primary" disabled={loading}>
+                        {loading ? (
+                            <>
+                                <span className="spinner"></span>
+                                <span>Signing in...</span>
+                            </>
+                        ) : 'Sign In'}
+                    </button>
+                </form>
+            )}
+
+            {authMethod === 'otp' && (
+                <div>
+                    {otpStep === 1 ? (
+                        <form onSubmit={handleSendOtp} className="auth-form">
+                            <div className="field">
+                                <label htmlFor="otp-email">Registered Email</label>
+                                <input
+                                    id="otp-email"
+                                    type="email"
+                                    value={otpEmail}
+                                    onChange={(e) => setOtpEmail(e.target.value)}
+                                    placeholder="Enter your email"
+                                    required
+                                />
+                            </div>
+
+                            <button type="submit" className="button-primary" disabled={loading}>
+                                {loading ? (
+                                    <>
+                                        <span className="spinner"></span>
+                                        <span>Sending Code...</span>
+                                    </>
+                                ) : 'Send OTP Code'}
+                            </button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleVerifyOtpLogin} className="auth-form">
+                            <div className="field">
+                                <label htmlFor="otp-code">6-Digit OTP Code</label>
+                                <input
+                                    id="otp-code"
+                                    type="text"
+                                    maxLength="6"
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="123456"
+                                    style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem', fontWeight: 'bold' }}
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                                <input
+                                    type="checkbox"
+                                    id="toggle-reset-pass"
+                                    checked={isResetPassword}
+                                    onChange={(e) => setIsResetPassword(e.target.checked)}
+                                    style={{ width: 'auto', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="toggle-reset-pass" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                                    Set new password for account
+                                </label>
+                            </div>
+
+                            {isResetPassword && (
+                                <div className="field">
+                                    <label htmlFor="new-password">New Password</label>
+                                    <input
+                                        id="new-password"
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Min. 6 characters"
+                                        required={isResetPassword}
+                                    />
+                                </div>
+                            )}
+
+                            <button type="submit" className="button-primary" disabled={loading}>
+                                {loading ? (
+                                    <>
+                                        <span className="spinner"></span>
+                                        <span>Verifying...</span>
+                                    </>
+                                ) : (isResetPassword ? 'Reset Password & Sign In' : 'Verify & Sign In')}
+                            </button>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.85rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setOtpStep(1); setError(''); setSuccessMsg(''); }}
+                                    className="text-link-btn"
+                                >
+                                    Change Email
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSendOtp}
+                                    disabled={loading}
+                                    className="text-link-btn"
+                                >
+                                    Resend Code
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            )}
 
             <div className="auth-links">
                 <span className="small-muted">New to our platform?</span>

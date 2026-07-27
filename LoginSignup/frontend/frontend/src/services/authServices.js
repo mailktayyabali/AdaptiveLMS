@@ -38,5 +38,68 @@ export async function fetchRoleData(endpoint) {
   }
   return res.json();
 }
+export const fetchUsers = async () =>{
+  const response = await fetch('http://localhost:5000/api/users', {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    }
+  });
+  if(!response.ok) throw new Error('Failed to fetch users');
+  return response.json();
+};
 
-export { login as loginUser, signup as signupUser };
+export const assignRoleToUser = async(userId, role, token) => {
+  const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({role})
+  });
+  if(!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to assign role');
+  }
+  return response.json();
+};
+export async function sendOtp(email) {
+  const res = await fetch("/api/send-otp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Failed to send OTP");
+  }
+  return data;
+}
+
+export async function verifyOtpLogin(email, otp) {
+  const res = await fetch("/api/verify-otp-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Invalid or expired OTP");
+  }
+  return data;
+}
+
+export async function resetPasswordOtp(email, otp, newPassword) {
+  const res = await fetch("/api/reset-password-otp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Failed to reset password");
+  }
+  return data;
+}
+
+export { login as loginUser, signup as signupUser, fetchUsers as fetchAllUsers, assignRoleToUser as assignRole};

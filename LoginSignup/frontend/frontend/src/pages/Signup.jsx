@@ -34,7 +34,7 @@ export default function Signup({ toggleMode }) {
                 setPassword('');
                 setConfirmPassword('');
                 setRole('user');
-                // Automatically switch to login after 3 seconds
+                // Automatically switch to login after 2.5 seconds
                 setTimeout(() => {
                     toggleMode();
                 }, 2500);

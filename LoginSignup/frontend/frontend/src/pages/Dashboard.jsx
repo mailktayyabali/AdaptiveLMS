@@ -1,12 +1,14 @@
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchRoleData } from '../services/authServices.js';
+import { fetchRoleData, fetchUsers, assignRoleToUser } from '../services/authServices.js';
+import './Dashboard.css';
 
 export default function Dashboard() {
     const { user, logout } = useContext(ProfileContext);
     const navigate = useNavigate();
     const [roleData, setRoleData] = useState(null);
+    const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -26,6 +28,10 @@ export default function Dashboard() {
 
                 const data = await fetchRoleData(endpoint);
                 setRoleData(data);
+                if (user.role === 'admin'){
+                    const usersData = await fetchUsers();
+                    setUsers(usersData.users || usersData);
+                }
             } catch (err) {
                 setError(err.message || 'Failed to fetch dashboard data');
             } finally {
@@ -35,6 +41,17 @@ export default function Dashboard() {
 
         loadDashboardData();
     }, [user, navigate]);
+
+    const handleRoleChange = async (userId, newRole) =>{
+        try {
+            const token = localStorage.getItem('token');
+            const response = await assignRoleToUser(userId, newRole, token);
+            const updatedUser = response.user || response;
+            setUsers(users.map(u => u._id === userId ? updatedUser : u));
+        } catch (err) {
+            setError('Failed to update role');
+        }
+    };
 
     const handleLogout = () => {
         const confirmation = window.confirm('Are you sure you want to log out?');
@@ -56,126 +73,89 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="dashboard-container animate-fade-in">
-            <header className="dashboard-header-bar">
-                <div className="user-profile-summary">
-                    <div className="dashboard-avatar">
-                        {initial}
-                    </div>
-                    <div>
-                        <h3>{user.name}</h3>
-                        <p className="user-subtext">{user.email}</p>
-                    </div>
-                    <span className={getRoleBadgeClass(user.role)}>
-                        {user.role.toUpperCase()}
-                    </span>
-                </div>
-                <button onClick={handleLogout} className="btn-logout">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="icon">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
-                    </svg>
+        <div className="dashboard-container">
+            {/* Header */}
+            <div className="dashboard-header">
+                <h1>Dashboard</h1>
+                <button onClick={handleLogout} className="logout-btn">
                     Logout
                 </button>
-            </header>
+            </div>
 
-            <main className="dashboard-content">
+            {/* Main Content */}
+            <div className="dashboard-content">
+                <div className="welcome-card">
+                    <h2>Welcome, {user.name}!</h2>
+                    <p>Role: <strong>{user.role.toUpperCase()}</strong></p>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
                 {loading ? (
-                    <div className="dashboard-loading">
-                        <div className="spinner"></div>
-                        <p>Loading secure workspace...</p>
-                    </div>
-                ) : error ? (
-                    <div className="status error-status">
-                        <p><strong>Security Error:</strong> {error}</p>
-                    </div>
+                    <div className="loading-message">Loading...</div>
                 ) : (
-                    <div className="role-specific-view">
-                        <div className="welcome-banner">
-                            <h2>{roleData?.message || 'Access Granted'}</h2>
-                            <p>You have successfully authenticated using role-based access control.</p>
-                        </div>
-
-                        {/* Admin View */}
-                        {user.role === 'admin' && roleData?.stats && (
-                            <div className="admin-grid animate-scale-up">
-                                <div className="metric-card bg-gradient-admin">
-                                    <h4>Total Workspace Users</h4>
-                                    <div className="metric-val">{roleData.stats.totalUsers}</div>
-                                    <span className="metric-sub">Registered accounts</span>
-                                </div>
-                                <div className="metric-card bg-gradient-admin">
-                                    <h4>Active Server Sessions</h4>
-                                    <div className="metric-val">{roleData.stats.activeSessions}</div>
-                                    <span className="metric-sub">Real-time connections</span>
-                                </div>
-                                <div className="metric-card bg-gradient-admin">
-                                    <h4>System Health Status</h4>
-                                    <div className="metric-val health-good">{roleData.stats.serverStatus}</div>
-                                    <span className="metric-sub">All nodes operational</span>
-                                </div>
-                                <div className="admin-actions-card span-full">
-                                    <h3>Administrative Actions</h3>
-                                    <div className="admin-btn-group">
-                                        <button className="btn-admin-action">Backup Server Database</button>
-                                        <button className="btn-admin-action">Access Security Logs</button>
-                                        <button className="btn-admin-action">User Management Console</button>
-                                    </div>
-                                    <div className="backup-timestamp">
-                                        Last automated system backup: <code>{new Date(roleData.stats.lastBackup).toLocaleString()}</code>
-                                    </div>
-                                </div>
+                    <>
+                        {/* Admin Users Table */}
+                        {user.role === 'admin' && (
+                            <div className="users-table-container">
+                                <h3>Manage Users</h3>
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Username</th>
+                                            <th>Current Role</th>
+                                            <th>Assign Role</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {users && users.length > 0 ? (
+                                            users.map(u => (
+                                                <tr key={u._id}>
+                                                    <td>{u.name}</td>
+                                                    <td>{u.email}</td>
+                                                    <td>{u.username}</td>
+                                                    <td>
+                                                        <span className={getRoleBadgeClass(u.role)}>
+                                                            {u.role}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            value={u.role}
+                                                            onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                                                            className="role-select"
+                                                        >
+                                                            <option value="user">User</option>
+                                                            <option value="manager">Manager</option>
+                                                            <option value="admin">Admin</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="5" className="no-users-message">
+                                                    No users found
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
 
-                        {/* Manager View */}
-                        {user.role === 'manager' && roleData?.tasks && (
-                            <div className="manager-view animate-scale-up">
-                                <h3>Team Tasks & Operations</h3>
-                                <div className="tasks-list">
-                                    {roleData.tasks.map(task => (
-                                        <div key={task.id} className="task-item">
-                                            <div className="task-info">
-                                                <span className="task-id">#{task.id}</span>
-                                                <span className="task-title">{task.title}</span>
-                                            </div>
-                                            <span className={`task-badge badge-${task.status.toLowerCase().replace(' ', '-')}`}>
-                                                {task.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="manager-controls">
-                                    <button className="btn-manager-action">Create New Task</button>
-                                    <button className="btn-manager-action">Generate Team Report</button>
-                                </div>
+                        {/* Role-specific data
+                        {roleData && (
+                            <div className="role-data-container">
+                                <h3>Dashboard Data</h3>
+                                <pre>{JSON.stringify(roleData, null, 2)}</pre>
                             </div>
-                        )}
-
-                        {/* User View */}
-                        {user.role === 'user' && roleData?.announcements && (
-                            <div className="user-view animate-scale-up">
-                                <h3>Workspace Announcements</h3>
-                                <div className="announcements-list">
-                                    {roleData.announcements.map((announcement, idx) => (
-                                        <div key={idx} className="announcement-item">
-                                            <div className="announcement-icon">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="icon">
-                                                    <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                            <p className="announcement-text">{announcement}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="user-actions">
-                                    <button className="btn-user-action">View Profile Settings</button>
-                                    <button className="btn-user-action">Contact Support Team</button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                        )} */}
+                    </>
                 )}
-            </main>
+            </div>
         </div>
     );
 }

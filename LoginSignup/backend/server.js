@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import connectDB from './db.js';
 import User from './models/User.js';
 
@@ -19,6 +20,7 @@ app.get('/', (req, res) => {
 
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
+    console.log("check authentication");
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
@@ -136,7 +138,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Role-restricted verification endpoints for frontend
+// Role restricted verification endpoints for frontend
 app.get('/api/admin-data', authenticateToken, authorizeRoles('admin'), (req, res) => {
     res.json({
         success: true,
@@ -171,6 +173,215 @@ app.get('/api/user-data', authenticateToken, (req, res) => {
             'New premium security features rolled out today.'
         ]
     });
+});
+
+//get all users
+app.get ('/api/users',authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try{
+        const users = await User.find().select('-password');
+        res.json({success: true, users});
+
+    }catch (error){
+        res.status(500).json({sucess: false, message: 'Server did not respond.'});
+    }
+});
+
+//role assign api
+app.put('/api/users/:id/role', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    console.log('role update');
+    try {
+        const { role } = req.body;
+
+        if (!['user', 'manager', 'admin'].includes(role)) {
+            return res.status(400).json({ success: false, message: 'Invalid role specified' });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { role },
+            { new: true }
+        ).select('-password');
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.json({ success: true, message: 'User role updated successfully', user });
+    } catch (error) {
+        console.error('Role update error:', error);
+        res.status(500).json({ success: false, message: 'Server did not respond.' });
+    }
+});
+
+// Nodemailer Helper for OTP Email Sending
+const sendOTPEmail = async (toEmail, otp) => {
+    const emailUser = process.env.EMAIL_USER?.trim();
+    const emailPass = process.env.EMAIL_PASS?.trim();
+
+    console.log('\n========================================');
+    console.log(`[OTP SYSTEM] Sending OTP for ${toEmail}: ${otp}`);
+    console.log(`[OTP SYSTEM] Using Email: ${emailUser}`);
+    console.log('========================================\n');
+
+    // If default / placeholder credentials are set, log to console instead of attempting real SMTP error
+    if (!emailUser || emailUser === 'your-email@gmail.com' || !emailPass || emailPass === 'your-app-password') {
+        console.log('[Nodemailer WARNING] Using console log mode for OTP because default email credentials were found in .env');
+        return { success: true, simulated: true };
+    }
+
+    try {
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // TLS 465
+            auth: {
+                user: emailUser,
+                pass: emailPass
+            },
+            tls: {
+                rejectUnauthorized: false // Prevents local SSL cert blocking issues
+            }
+        });
+
+        const mailOptions = {
+            from: `"Auth Security" <${emailUser}>`,
+            to: toEmail,
+            subject: 'Your Verification Code (OTP)',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                    <h2 style="color: #4f46e5; text-align: center; margin-bottom: 8px;">Verification Code</h2>
+                    <p style="color: #4b5563; font-size: 15px;">Hello,</p>
+                    <p style="color: #4b5563; font-size: 15px;">Use the following One-Time Password (OTP) code to verify your account or reset your password:</p>
+                    <div style="background-color: #f3f4f6; padding: 18px; text-align: center; border-radius: 8px; margin: 24px 0;">
+                        <span style="font-size: 34px; font-weight: 800; letter-spacing: 6px; color: #1e1b4b;">${otp}</span>
+                    </div>
+                    <p style="color: #6b7280; font-size: 13px;">This OTP will expire in <strong>10 minutes</strong>. If you did not request this code, please ignore this email.</p>
+                </div>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[Nodemailer SUCCESS] Email sent successfully! MessageId: ${info.messageId}`);
+        return { success: true };
+    } catch (err) {
+        console.error('[Nodemailer ERROR] Failed to send email via SMTP:');
+        console.error(err);
+        return { success: false, error: err.message };
+    }
+};
+
+//Send OTP to email
+app.post('/api/send-otp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Please provide an email address.' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'No account found with this email.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        user.otpCode = otp;
+        user.otpExpire = otpExpire;
+        await user.save();
+
+        const emailResult = await sendOTPEmail(user.email, otp);
+        if (emailResult && emailResult.success === false) {
+            return res.status(500).json({ success: false, message: `Email Delivery Failed: ${emailResult.error}` });
+        }
+
+        res.json({ success: true, message: 'OTP sent to your email successfully!' });
+    } catch (error) {
+        console.error('Send OTP error:', error);
+        res.status(500).json({ success: false, message: 'Server error while sending OTP.' });
+    }
+});
+
+// Route: Verify OTP and Login
+app.post('/api/verify-otp-login', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) {
+            return res.status(400).json({ success: false, message: 'Please provide email and OTP.' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        if (!user.otpCode || user.otpCode !== otp.toString().trim()) {
+            return res.status(400).json({ success: false, message: 'Invalid OTP code.' });
+        }
+
+        if (new Date() > new Date(user.otpExpire)) {
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+        }
+
+        // Clear OTP after successful use
+        user.otpCode = null;
+        user.otpExpire = null;
+        await user.save();
+
+        const payload = {
+            username: user.username,
+            email: user.email,
+            name: user.name,
+            role: user.role
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin', {
+            expiresIn: '7d'
+        });
+
+        res.json({ success: true, message: 'Logged in with OTP successfully!', token, role: user.role });
+    } catch (error) {
+        console.error('Verify OTP error:', error);
+        res.status(500).json({ success: false, message: 'Server error verifying OTP.' });
+    }
+});
+
+// Route: Reset Password using OTP
+app.post('/api/reset-password-otp', async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Please fill in all required fields.' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        if (!user.otpCode || user.otpCode !== otp.toString().trim()) {
+            return res.status(400).json({ success: false, message: 'Invalid OTP code.' });
+        }
+
+        if (new Date() > new Date(user.otpExpire)) {
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        user.otpCode = null;
+        user.otpExpire = null;
+        await user.save();
+
+        res.json({ success: true, message: 'Password reset successfully! You can now sign in with your new password.' });
+    } catch (error) {
+        console.error('Reset Password OTP error:', error);
+        res.status(500).json({ success: false, message: 'Server error resetting password.' });
+    }
 });
 
 const port = process.env.PORT || 5000;

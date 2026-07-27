@@ -76,12 +76,13 @@ header img {
 
 .auth-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
 }
 
 .auth-header {
@@ -108,7 +109,7 @@ header img {
 
 .field-group-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -122,6 +123,7 @@ header img {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .field label {
@@ -131,6 +133,9 @@ header img {
 }
 
 .field input, .field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 10px 12px;
   font-size: 0.95rem;
   border: 1px solid var(--border);
@@ -315,6 +320,7 @@ header img {
 
 .btn-logout:hover {
   background: #f1f5f9;
+  color:#0f172a
 }
 
 .btn-logout .icon {
