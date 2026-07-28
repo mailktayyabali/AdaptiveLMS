@@ -6,14 +6,21 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { OAuth2Client } from 'google-auth-library';
 import connectDB from './db.js';
 import User from './models/User.js';
 
 dotenv.config();
+connectDB();
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 app.use(cors());
 app.use(express.json());
 
@@ -41,7 +48,200 @@ const authLimiter = rateLimit({
 });
 app.use(['/login', '/register'], authLimiter);
 
-connectDB();
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '135726964521-piumqftcr3ik27spkvsi2jlcl2e4aos9.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+app.post('/api/google-login', async (req, res) => {
+    try {
+
+        const {idToken} = req.body;
+        if(!idToken){
+            return res.status(400).json({success: false, message: 'Google auth error. please try again'});
+        }
+        const ticket = await googleClient.verifyIdToken({
+            idToken,
+            audience: GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        if(!payload) {
+            return res.status(400).json({success: false, message: 'google login error'});
+        }
+
+        const {sub: googleId, email, name} = payload;
+
+        let user = await User.findOne({
+            $or: [
+                {email: email},
+                {googleId: googleId}
+            ]
+        });
+
+        if (!user) {
+            const baseUsername = email.split('@')[0];
+            let username = baseUsername;
+            let counter = 1;
+            while (await User.findOne({username})) {
+                username = `${baseUsername}${counter}`;
+                counter++;
+            }
+            user = new User({
+                name: name || 'Google User',
+                username,
+                email,
+                googleId,
+                authProvider: 'google',
+            });
+            await user.save();
+        }else if(!user.googleId){
+            // user exist but with email and google not linked yet
+            user.googleId = googleId;
+            user.authProvider = 'google';
+            await user.save();
+        }
+
+        const token = jwt.sign(
+            {
+                id: user._id,
+                username: user.username,
+                role: user.role
+            },
+            process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin',
+            {
+                expiresIn: '7d'
+            }
+        );
+        res.json({ 
+            success: true, 
+            token, 
+            user: { 
+                id: user._id,
+                name: user.name, 
+                email: user.email, 
+                username: user.username ,
+                role: user.role 
+            }
+        });
+
+    } catch (error) {
+        console.error('Google login error detail:', error);
+        res.status(400).json({ success: false, message: error.message || 'google login error'});
+    }
+});
+
+// GitHub OAuth Login / Register Route
+app.post('/api/github-login', async (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ success: false, message: 'GitHub authorization code is required.' });
+        }
+
+        const client_id = process.env.GITHUB_CLIENT_ID || 'Ov23liGsnv6UI0jTYHVx';
+        const client_secret = process.env.GITHUB_CLIENT_SECRET || '1977896adb7c0f360a233b3a8db8b4d2b9cf04a6';
+
+        // Exchange code for access_token
+        const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ client_id, client_secret, code })
+        });
+
+        const tokenData = await tokenResponse.json();
+        if (!tokenData.access_token) {
+            return res.status(400).json({ success: false, message: tokenData.error_description || 'Failed to obtain GitHub access token.' });
+        }
+
+        const accessToken = tokenData.access_token;
+
+        // Fetch user profile from GitHub
+        const userResponse = await fetch('https://api.github.com/user', {
+            headers: {
+                'Authorization': `token ${accessToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'LoginSignupApp'
+            }
+        });
+        const githubUser = await userResponse.json();
+
+        if (!githubUser || !githubUser.id) {
+            console.error('GitHub user fetch error:', githubUser);
+            return res.status(400).json({ success: false, message: githubUser?.message || 'Failed to fetch user profile from GitHub.' });
+        }
+
+        let email = githubUser.email;
+        if (!email) {
+            const emailResponse = await fetch('https://api.github.com/user/emails', {
+                headers: {
+                    'Authorization': `token ${accessToken}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'LoginSignupApp'
+                }
+            });
+            const emails = await emailResponse.json();
+            if (Array.isArray(emails)) {
+                const primaryEmail = emails.find(e => e.primary && e.verified) || emails[0];
+                if (primaryEmail) email = primaryEmail.email;
+            }
+        }
+
+        if (!email) {
+            email = `${githubUser.login}@users.noreply.github.com`;
+        }
+
+        const githubId = String(githubUser.id);
+        const name = githubUser.name || githubUser.login || 'GitHub User';
+
+        let user = await User.findOne({ $or: [{ githubId }, { email }] });
+
+        if (!user) {
+            const baseUsername = githubUser.login || email.split('@')[0];
+            let username = baseUsername;
+            let counter = 1;
+            while (await User.findOne({ username })) {
+                username = `${baseUsername}${counter}`;
+                counter++;
+            }
+            user = new User({
+                name,
+                username,
+                email,
+                githubId,
+                authProvider: 'github',
+            });
+            await user.save();
+        } else if (!user.githubId) {
+            user.githubId = githubId;
+            user.authProvider = 'github';
+            await user.save();
+        }
+
+        const token = jwt.sign(
+            { id: user._id, username: user.username, role: user.role },
+            process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin',
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            success: true,
+            message: 'GitHub login successful!',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                username: user.username,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('GitHub login error detail:', error);
+        res.status(400).json({ success: false, message: error.message || 'GitHub login error' });
+    }
+});
+
 app.get('/', (req, res) => {
     res.send('Backend is working');
 });

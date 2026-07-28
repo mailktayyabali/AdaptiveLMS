@@ -22,8 +22,27 @@ const UserSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: [true, 'Please provide a password'],
+        required: function(){
+            return !this.googleId && !this.githubId;
+        },
         minlength: [6, 'Password must be at least 6 characters long']
+    },
+    googleId: {
+        type: String,
+        default: null,
+        unique: true,
+        sparse: true
+    },
+    githubId: {
+        type: String,
+        default: null,
+        unique: true,
+        sparse: true
+    },
+    authProvider: {
+        type: String,
+        enum: ['local', 'google', 'github'],
+        default: 'local'
     },
     role: {
         type: String,

@@ -100,6 +100,35 @@ export async function resetPasswordOtp(email, otp, newPassword) {
     throw new Error(data.message || "Failed to reset password");
   }
   return data;
+};
+export async function googleLogin(idToken) {
+  const res = await fetch("/api/google-login",{
+    method: "POST",
+    headers:{
+      "Content-Type" : "application/json"
+    },
+    body: JSON.stringify({idToken}),
+  });
+  const data = await res.json();
+  if(!res.ok || !data.success){
+    throw new Error(data.message || "Google Login failed");
+  }
+  return data;
+}
+
+export async function githubLogin(code) {
+  const res = await fetch("/api/github-login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "GitHub Login failed");
+  }
+  return data;
 }
 
 export { login as loginUser, signup as signupUser, fetchUsers as fetchAllUsers, assignRoleToUser as assignRole};

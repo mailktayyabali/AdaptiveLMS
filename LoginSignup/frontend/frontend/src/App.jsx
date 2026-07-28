@@ -1,6 +1,7 @@
 import Header from "./components/Header.jsx";
 import Main from "./components/Main.jsx";
 import Profile from "./pages/Dashboard.jsx";
+import GithubCallback from "./pages/GithubCallback.jsx";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 
@@ -14,6 +15,7 @@ function App() {
         <Routes>
           <Route path='/' element={<Main />} />
           <Route path='/profile' element={<Profile />} />
+          <Route path='/auth/github/callback' element={<GithubCallback />} />
         </Routes>
       </ProfileProvider>
     </Router>
