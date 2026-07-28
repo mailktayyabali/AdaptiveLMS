@@ -38,13 +38,15 @@ export async function fetchRoleData(endpoint) {
   }
   return res.json();
 }
-export const fetchUsers = async () =>{
-  const response = await fetch('http://localhost:5000/api/users', {
+export const fetchUsers = async (params = {}) => {
+  const { page = 1, limit = 5, sortBy = 'createdAt', sortOrder = 'desc', search = '' } = params;
+  const queryParams = new URLSearchParams({ page, limit, sortBy, sortOrder, search }).toString();
+  const response = await fetch(`http://localhost:5000/api/users?${queryParams}`, {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`,
     }
   });
-  if(!response.ok) throw new Error('Failed to fetch users');
+  if (!response.ok) throw new Error('Failed to fetch users');
   return response.json();
 };
 

@@ -176,18 +176,18 @@
 }
 
 .badge-admin {
-    background-color: #fadbd8;
-    color: #c0392b;
+    background-color: #6b21a8;
+    color: #ffffff;
 }
 
 .badge-manager {
-    background-color: #fef5e7;
-    color: #d68910;
+    background-color: #b45309;
+    color: #ffffff;
 }
 
 .badge-user {
-    background-color: #d5f4e6;
-    color: #117a65;
+    background-color: #047857;
+    color: #ffffff;
 }
 
 .no-users-message {
@@ -259,4 +259,111 @@
         padding: 8px 10px;
         font-size: 12px;
     }
+}
+
+/* Table Controls Toolbar */
+.table-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.search-input {
+    padding: 10px 16px;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 300px;
+    background-color: #ffffff;
+    color: #1e293b;
+    transition: all 0.3s ease;
+}
+
+.search-input::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #4c51bf;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+}
+
+.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease;
+}
+
+.sortable-header:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sort-icon {
+    margin-left: 6px;
+    font-size: 12px;
+}
+
+/* Pagination Controls */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #ecf0f1;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-btn {
+    padding: 8px 16px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: #5a67d8;
+    transform: translateY(-1px);
+}
+
+.page-btn:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.limit-select {
+    padding: 6px 12px;
+    border: 2px solid #667eea;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: #ffffff;
+    color: #1e293b;
+    margin-left: 8px;
+    margin-right: 8px;
+    cursor: pointer;
+    font-weight: 600;
 }
