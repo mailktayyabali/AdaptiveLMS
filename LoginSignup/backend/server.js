@@ -10,6 +10,7 @@ import { generalLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/authRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import ticketRoutes from './routes/ticketRoutes.js';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use(generalLimiter);
 app.use(authRoutes);
 app.use(otpRoutes);
 app.use(userRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
