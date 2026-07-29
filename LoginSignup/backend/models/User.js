@@ -28,16 +28,10 @@ const UserSchema = new mongoose.Schema({
         minlength: [6, 'Password must be at least 6 characters long']
     },
     googleId: {
-        type: String,
-        default: null,
-        unique: true,
-        sparse: true
+        type: String
     },
     githubId: {
-        type: String,
-        default: null,
-        unique: true,
-        sparse: true
+        type: String
     },
     authProvider: {
         type: String,
@@ -62,5 +56,15 @@ const UserSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+UserSchema.index(
+    { googleId: 1 },
+    { unique: true, partialFilterExpression: { googleId: { $type: 'string' } } }
+);
+
+UserSchema.index(
+    { githubId: 1 },
+    { unique: true, partialFilterExpression: { githubId: { $type: 'string' } } }
+);
 
 export default mongoose.model('User', UserSchema);

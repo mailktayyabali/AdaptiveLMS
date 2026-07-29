@@ -24,7 +24,7 @@ export default function Signup({ toggleMode }) {
             setError('');
             const res = await googleLogin(credentialResponse.credential);
             if (res.success && res.token) {
-                login(res.token);
+                login(res.token, res.refreshToken);
                 navigate('/profile');
             } else {
                 setError(res.message || 'Google signup failed');

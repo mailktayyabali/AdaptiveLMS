@@ -1,6 +1,8 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { sendOTPEmail } from '../utils/sendOTPEmail.js';
+import { generateAccessToken, generateRefreshToken, setRefreshTokenCookie } from './authController.js';
 
 // Send OTP to email
 export const sendOtp = async (req, res) => {
@@ -59,18 +61,25 @@ export const verifyOtpLogin = async (req, res) => {
         user.otpExpire = null;
         await user.save();
 
-        const payload = {
-            username: user.username,
-            email: user.email,
-            name: user.name,
-            role: user.role
-        };
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        setRefreshTokenCookie(res, refreshToken);
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin', {
-            expiresIn: '7d'
+        res.json({
+            success: true,
+            message: 'Logged in with OTP successfully!',
+            token: accessToken,
+            accessToken,
+            refreshToken,
+            role: user.role,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                username: user.username,
+                role: user.role
+            }
         });
-
-        res.json({ success: true, message: 'Logged in with OTP successfully!', token, role: user.role });
     } catch (error) {
         console.error('Verify OTP error:', error);
         res.status(500).json({ success: false, message: 'Server error verifying OTP.' });

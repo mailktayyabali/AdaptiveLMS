@@ -6,6 +6,43 @@ import User from '../models/User.js';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '135726964521-piumqftcr3ik27spkvsi2jlcl2e4aos9.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin';
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'supersecretkeyforrefreshtokenauthandlogin';
+
+export const generateAccessToken = (user) => {
+    return jwt.sign(
+        {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            name: user.name,
+            role: user.role
+        },
+        ACCESS_TOKEN_SECRET,
+        { expiresIn: '15m' }
+    );
+};
+
+export const generateRefreshToken = (user) => {
+    return jwt.sign(
+        {
+            id: user._id,
+            username: user.username
+        },
+        REFRESH_TOKEN_SECRET,
+        { expiresIn: '7d' }
+    );
+};
+
+export const setRefreshTokenCookie = (res, refreshToken) => {
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+};
+
 // Standard User Registration
 export const register = async (req, res) => {
     try {
@@ -75,18 +112,25 @@ export const login = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid credentials.' });
         }
 
-        const payload = {
-            username: user.username,
-            email: user.email,
-            name: user.name,
-            role: user.role
-        };
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        setRefreshTokenCookie(res, refreshToken);
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin', {
-            expiresIn: '7d'
+        res.json({
+            success: true,
+            message: 'Logged in successfully!',
+            token: accessToken,
+            accessToken,
+            refreshToken,
+            role: user.role,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                username: user.username,
+                role: user.role
+            }
         });
-
-        res.json({ success: true, message: 'Logged in successfully!', token, role: user.role });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ success: false, message: 'Server error during login.' });
@@ -141,20 +185,15 @@ export const googleLogin = async (req, res) => {
             await user.save();
         }
 
-        const token = jwt.sign(
-            {
-                id: user._id,
-                username: user.username,
-                role: user.role
-            },
-            process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin',
-            {
-                expiresIn: '7d'
-            }
-        );
+        const accessTokenApp = generateAccessToken(user);
+        const refreshTokenApp = generateRefreshToken(user);
+        setRefreshTokenCookie(res, refreshTokenApp);
+
         res.json({ 
             success: true, 
-            token, 
+            token: accessTokenApp,
+            accessToken: accessTokenApp,
+            refreshToken: refreshTokenApp,
             user: { 
                 id: user._id,
                 name: user.name, 
@@ -195,11 +234,11 @@ export const githubLogin = async (req, res) => {
             return res.status(400).json({ success: false, message: tokenData.error_description || 'Failed to obtain GitHub access token.' });
         }
 
-        const accessToken = tokenData.access_token;
+        const ghAccessToken = tokenData.access_token;
 
         const userResponse = await fetch('https://api.github.com/user', {
             headers: {
-                'Authorization': `token ${accessToken}`,
+                'Authorization': `token ${ghAccessToken}`,
                 'Accept': 'application/vnd.github.v3+json',
                 'User-Agent': 'LoginSignupApp'
             }
@@ -215,7 +254,7 @@ export const githubLogin = async (req, res) => {
         if (!email) {
             const emailResponse = await fetch('https://api.github.com/user/emails', {
                 headers: {
-                    'Authorization': `token ${accessToken}`,
+                    'Authorization': `token ${ghAccessToken}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'User-Agent': 'LoginSignupApp'
                 }
@@ -258,16 +297,16 @@ export const githubLogin = async (req, res) => {
             await user.save();
         }
 
-        const token = jwt.sign(
-            { id: user._id, username: user.username, role: user.role },
-            process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin',
-            { expiresIn: '7d' }
-        );
+        const appAccessToken = generateAccessToken(user);
+        const appRefreshToken = generateRefreshToken(user);
+        setRefreshTokenCookie(res, appRefreshToken);
 
         res.json({
             success: true,
             message: 'GitHub login successful!',
-            token,
+            token: appAccessToken,
+            accessToken: appAccessToken,
+            refreshToken: appRefreshToken,
             user: {
                 id: user._id,
                 name: user.name,
@@ -280,4 +319,47 @@ export const githubLogin = async (req, res) => {
         console.error('GitHub login error detail:', error);
         res.status(400).json({ success: false, message: error.message || 'GitHub login error' });
     }
+};
+
+// Refresh Access Token
+export const refreshToken = async (req, res) => {
+    try {
+        const token = req.cookies?.refreshToken || req.body?.refreshToken;
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Refresh token missing.' });
+        }
+
+        const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'User not found.' });
+        }
+
+        const newAccessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken(user);
+        setRefreshTokenCookie(res, newRefreshToken);
+
+        res.json({
+            success: true,
+            token: newAccessToken,
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+            role: user.role,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                username: user.username,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired refresh token. Please login again.' });
+    }
+};
+
+// Logout User
+export const logout = async (req, res) => {
+    res.clearCookie('refreshToken');
+    res.json({ success: true, message: 'Logged out successfully.' });
 };

@@ -33,7 +33,7 @@ export default function Login({ toggleMode }) {
             setError('');
             const res = await googleLogin(credentialResponse.credential);
             if (res.success && res.token) {
-                login(res.token);
+                login(res.token, res.refreshToken);
                 navigate('/profile');
             } else {
                 setError(res.message || 'Google login failed');
@@ -62,7 +62,7 @@ export default function Login({ toggleMode }) {
         try {
             const result = await loginUser(username, password);
             if (result.success && result.token) {
-                login(result.token);
+                login(result.token, result.refreshToken);
                 navigate('/profile');
             } else {
                 setError(result.message || 'Login failed');
@@ -111,13 +111,13 @@ export default function Login({ toggleMode }) {
                 setSuccessMsg(resetRes.message || 'Password reset successfully! Logging you in...');
                 const loginRes = await loginUser(otpEmail, newPassword);
                 if (loginRes.success && loginRes.token) {
-                    login(loginRes.token);
+                    login(loginRes.token, loginRes.refreshToken);
                     navigate('/profile');
                 }
             } else {
                 const res = await verifyOtpLogin(otpEmail, otpCode);
                 if (res.success && res.token) {
-                    login(res.token);
+                    login(res.token, res.refreshToken);
                     navigate('/profile');
                 } else {
                     setError(res.message || 'OTP verification failed.');

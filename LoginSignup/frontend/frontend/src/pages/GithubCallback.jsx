@@ -17,7 +17,7 @@ export default function GithubCallback() {
             githubLogin(code)
                 .then(res => {
                     if (res.success && res.token) {
-                        login(res.token);
+                        login(res.token, res.refreshToken);
                         navigate('/profile');
                     } else {
                         setError(res.message || 'GitHub login failed');

@@ -7,11 +7,14 @@ export const authenticateToken = (req, res, next) => {
     if (!token) return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin');
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET || 'supersecretkeyforjwttokenauthandlogin');
         req.user = decoded;
         next();
     } catch (error) {
-        return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ success: false, message: 'Access token expired', code: 'TOKEN_EXPIRED' });
+        }
+        return res.status(403).json({ success: false, message: 'Invalid token.' });
     }
 };
 

@@ -24,42 +24,83 @@ export async function signup(payload) {
   return res.json();
 }
 
-export async function fetchRoleData(endpoint) {
-  const token = localStorage.getItem("token");
-  const res = await fetch(`/api/${endpoint}`, {
-    headers: { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    },
+export async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem("refreshToken");
+  const res = await fetch("/api/refresh-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
   });
+
+  if (!res.ok) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to refresh token");
+  }
+
+  const data = await res.json();
+  if (data.accessToken || data.token) {
+    const newToken = data.accessToken || data.token;
+    localStorage.setItem("token", newToken);
+    if (data.refreshToken) {
+      localStorage.setItem("refreshToken", data.refreshToken);
+    }
+    return newToken;
+  }
+  throw new Error("Invalid token refresh response");
+}
+
+export async function authenticatedFetch(url, options = {}) {
+  let token = localStorage.getItem("token");
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+
+  let response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    try {
+      const newToken = await refreshAccessToken();
+      headers["Authorization"] = `Bearer ${newToken}`;
+      response = await fetch(url, { ...options, headers });
+    } catch (refreshErr) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      window.location.href = "/";
+      throw new Error("Session expired. Please log in again.");
+    }
+  }
+
+  return response;
+}
+
+export async function fetchRoleData(endpoint) {
+  const res = await authenticatedFetch(`/api/${endpoint}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || "Access denied");
   }
   return res.json();
 }
+
 export const fetchUsers = async (params = {}) => {
   const { page = 1, limit = 5, sortBy = 'createdAt', sortOrder = 'desc', search = '' } = params;
   const queryParams = new URLSearchParams({ page, limit, sortBy, sortOrder, search }).toString();
-  const response = await fetch(`http://localhost:5000/api/users?${queryParams}`, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-    }
-  });
+  const response = await authenticatedFetch(`http://localhost:5000/api/users?${queryParams}`);
   if (!response.ok) throw new Error('Failed to fetch users');
   return response.json();
 };
 
-export const assignRoleToUser = async(userId, role, token) => {
-  const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
+export const assignRoleToUser = async (userId, role) => {
+  const response = await authenticatedFetch(`http://localhost:5000/api/users/${userId}/role`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({role})
+    body: JSON.stringify({ role })
   });
-  if(!response.ok) {
+  if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.message || 'Failed to assign role');
   }

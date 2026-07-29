@@ -7,25 +7,29 @@ export const ProfileProvider = ({ children }) => {
     // Synchronously initialize user state from localStorage so page refresh preserves logged in user
     const [user, setUser] = useState(() => {
         const token = localStorage.getItem('token');
+        const refreshToken = localStorage.getItem('refreshToken');
         if (token) {
             try {
                 const decoded = jwtDecode(token);
-                // Check if token has expired
-                if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+                // If access token is expired but refresh token exists, preserve user session for auto-refresh
+                if (decoded.exp && decoded.exp * 1000 < Date.now() && !refreshToken) {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('refreshToken');
                     return null;
                 }
                 return decoded;
             } catch (err) {
                 localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
                 return null;
             }
         }
         return null;
     });
 
-    const login = (token) => {
-        localStorage.setItem('token', token);
+    const login = (token, refreshToken) => {
+        if (token) localStorage.setItem('token', token);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         try {
             const decoded = jwtDecode(token);
             setUser(decoded);
@@ -34,8 +38,14 @@ export const ProfileProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+        } catch (err) {
+            // ignore network errors on logout
+        }
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         setUser(null);
     };
 
