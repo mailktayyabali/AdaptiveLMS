@@ -39,19 +39,12 @@ export const createTicket = async (req, res) => {
     }
 };
 
-// 2. GET ALL Tickets (Role & Ownership Filtered)
+// 2. GET ALL Tickets (All authenticated users can view all tickets)
 export const getTickets = async (req, res) => {
     try {
-        let query = {};
+        const tickets = await Ticket.find({}).populate('owner', 'username email name role');
         
-        // Query-Level Ownership Enforcement: Non-admins can only see their own tickets
-        if (req.user.role !== 'admin') {
-            query.owner = req.user.id || req.user._id;
-        }
-
-        const tickets = await Ticket.find(query).populate('owner', 'username email name role');
-        
-        // Apply Field-Level Filter
+        // Apply Field-Level Filter (strips internalPriority for non-admins)
         const sanitizedTickets = tickets.map(t => sanitizeTicket(t, req.user.role));
 
         res.json({ success: true, count: sanitizedTickets.length, tickets: sanitizedTickets });
@@ -60,18 +53,13 @@ export const getTickets = async (req, res) => {
     }
 };
 
-// 3. GET Ticket By ID
+// 3. GET Ticket By ID (All authenticated users can view any ticket)
 export const getTicketById = async (req, res) => {
     try {
         const ticket = await Ticket.findById(req.params.id).populate('owner', 'username email name role');
 
         if (!ticket) {
             return res.status(404).json({ success: false, message: 'Ticket not found.' });
-        }
-
-        // Query-Level Ownership Check: Non-admin cannot fetch another user's record
-        if (req.user.role !== 'admin' && String(ticket.owner._id) !== String(req.user.id || req.user._id)) {
-            return res.status(403).json({ success: false, message: 'Access denied. You do not own this ticket.' });
         }
 
         res.json({ success: true, ticket: sanitizeTicket(ticket, req.user.role) });
