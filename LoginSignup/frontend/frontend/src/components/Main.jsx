@@ -20,8 +20,8 @@ export default function Main() {
     };
 
     return (
-        <main className="main-auth-container">
-            <div className="auth-card animate-scale-up">
+        <main className="flex justify-center items-center min-h-[calc(100vh-100px)] px-4 py-8 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+            <div className="w-full max-w-md bg-slate-900/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-lg">
                 {isLoginMode ? (
                     <Login toggleMode={toggleMode} />
                 ) : (

@@ -2,7 +2,7 @@ import { ProfileContext } from '../context/ProfileContext.jsx';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchRoleData, fetchUsers, assignRoleToUser } from '../services/authServices.js';
-import './Dashboard.css';
+import TicketManagement from '../components/TicketManagement.jsx';
 
 export default function Dashboard() {
     const { user, logout } = useContext(ProfileContext);
@@ -22,6 +22,8 @@ export default function Dashboard() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [totalPages, setTotalPages] = useState(1);
     const [totalUsers, setTotalUsers] = useState(0);
+
+    const [activeTab, setActiveTab] = useState('tickets');
 
     // Debounce search input by 300ms
     useEffect(() => {
@@ -111,94 +113,134 @@ export default function Dashboard() {
     if (!user) return null;
 
     const getRoleBadgeClass = (role) => {
-        if (role === 'admin') return 'role-badge badge-admin';
-        if (role === 'manager') return 'role-badge badge-manager';
-        return 'role-badge badge-user';
+        if (role === 'admin') return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-purple-700 text-white';
+        if (role === 'manager') return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-amber-600 text-white';
+        return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-600 text-white';
     };
 
     const renderSortIcon = (field) => {
-        if (sortBy !== field) return <span className="sort-icon">↕</span>;
-        return sortOrder === 'asc' ? <span className="sort-icon">▲</span> : <span className="sort-icon">▼</span>;
+        if (sortBy !== field) return <span className="ml-1 text-xs opacity-60">↕</span>;
+        return sortOrder === 'asc' ? <span className="ml-1 text-xs">▲</span> : <span className="ml-1 text-xs">▼</span>;
     };
 
     return (
-        <div className="dashboard-container">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
             {/* Header */}
-            <div className="dashboard-header">
-                <h1>Dashboard</h1>
-                <button onClick={handleLogout} className="logout-btn">
+            <div className="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md text-white px-6 md:px-10 py-5 shadow-xl flex flex-wrap justify-between items-center gap-4">
+                <h1 className="text-2xl font-bold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+                    Dashboard
+                </h1>
+                <button
+                    onClick={handleLogout}
+                    className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-md text-sm font-semibold transition-all shadow-md hover:-translate-y-0.5 cursor-pointer"
+                >
                     Logout
                 </button>
             </div>
 
             {/* Main Content */}
-            <div className="dashboard-content">
-                <div className="welcome-card">
-                    <h2>Welcome, {user.name}!</h2>
-                    <p>Role: <strong>{user.role.toUpperCase()}</strong></p>
+            <div className="p-4 md:p-10 max-w-7xl mx-auto">
+                <div className="bg-white p-6 md:p-8 rounded-xl mb-8 shadow-xl border-l-4 border-indigo-500">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Welcome, {user.name}!</h2>
+                    <p className="text-slate-600 text-base">Role: <strong className="text-indigo-600 font-semibold">{user.role.toUpperCase()}</strong></p>
                 </div>
 
-                {error && <div className="error-message">{error}</div>}
+                {error && (
+                    <div className="text-red-700 p-4 bg-red-100 border-l-4 border-red-500 rounded-md mb-6 font-medium">
+                        {error}
+                    </div>
+                )}
 
                 {initialLoading ? (
-                    <div className="loading-message">Loading...</div>
+                    <div className="text-center py-10 text-xl font-semibold text-white">Loading...</div>
                 ) : (
                     <>
-                        {/* Admin Users Table */}
-                        {user.role === 'admin' && (
-                            <div className="users-table-container">
-                                <div className="table-controls">
-                                    <h3>Manage Users ({totalUsers})</h3>
+                        {/* Tab Switcher */}
+                        <div className="flex gap-3 mb-6 overflow-x-auto">
+                            <button
+                                className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                    activeTab === 'tickets'
+                                        ? 'bg-white text-slate-900 shadow-lg font-bold'
+                                        : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                }`}
+                                onClick={() => setActiveTab('tickets')}
+                            >
+                                🎫 Support Tickets
+                            </button>
+                            {user.role === 'admin' && (
+                                <button
+                                    className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                        activeTab === 'users'
+                                            ? 'bg-white text-slate-900 shadow-lg font-bold'
+                                            : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                    }`}
+                                    onClick={() => setActiveTab('users')}
+                                >
+                                    👥 User Management
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Tickets Tab Content */}
+                        {activeTab === 'tickets' && <TicketManagement />}
+
+                        {/* Admin Users Table Tab Content */}
+                        {activeTab === 'users' && user.role === 'admin' && (
+                            <div className="bg-white p-6 md:p-8 rounded-xl shadow-xl overflow-x-auto">
+                                <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                                    <h3 className="text-xl font-bold text-slate-800 border-b-2 border-indigo-500 pb-2">
+                                        Manage Users ({totalUsers})
+                                    </h3>
                                     <input
                                         type="text"
                                         placeholder="Search by name, email, username..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="search-input"
+                                        className="px-4 py-2 border-2 border-indigo-500 rounded-lg text-sm w-full sm:w-72 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                                     />
                                 </div>
 
                                 <table 
-                                    className="users-table"
+                                    className="w-full border-collapse text-sm"
                                     style={{
                                         opacity: tableLoading ? 0.6 : 1,
                                         transition: 'opacity 0.2s ease-in-out'
                                     }}
                                 >
                                     <thead>
-                                        <tr>
-                                            <th onClick={() => handleSort('name')} className="sortable-header">
+                                        <tr className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+                                            <th onClick={() => handleSort('name')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
                                                 Name {renderSortIcon('name')}
                                             </th>
-                                            <th onClick={() => handleSort('email')} className="sortable-header">
+                                            <th onClick={() => handleSort('email')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
                                                 Email {renderSortIcon('email')}
                                             </th>
-                                            <th onClick={() => handleSort('username')} className="sortable-header">
+                                            <th onClick={() => handleSort('username')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
                                                 Username {renderSortIcon('username')}
                                             </th>
-                                            <th onClick={() => handleSort('role')} className="sortable-header">
+                                            <th onClick={() => handleSort('role')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
                                                 Current Role {renderSortIcon('role')}
                                             </th>
-                                            <th>Assign Role</th>
+                                            <th className="p-4 text-center font-semibold">Assign Role</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-slate-200">
                                         {users && users.length > 0 ? (
                                             users.map(u => (
-                                                <tr key={u._id}>
-                                                    <td>{u.name}</td>
-                                                    <td>{u.email}</td>
-                                                    <td>{u.username}</td>
-                                                    <td>
+                                                <tr key={u._id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-4 text-slate-800 font-medium">{u.name}</td>
+                                                    <td className="p-4 text-slate-600">{u.email}</td>
+                                                    <td className="p-4 text-slate-600">{u.username}</td>
+                                                    <td className="p-4">
                                                         <span className={getRoleBadgeClass(u.role)}>
                                                             {u.role}
                                                         </span>
                                                     </td>
-                                                    <td>
+                                                    <td className="p-4 text-center">
                                                         <select
                                                             value={u.role}
                                                             onChange={(e) => handleRoleChange(u._id, e.target.value)}
-                                                            className="role-select"
+                                                            className="px-3 py-2 border-2 border-indigo-500 rounded-md text-sm font-medium bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all min-w-[140px]"
                                                         >
                                                             <option value="user">User</option>
                                                             <option value="manager">Manager</option>
@@ -209,7 +251,7 @@ export default function Dashboard() {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="5" className="no-users-message">
+                                                <td colSpan="5" className="text-center py-10 text-slate-500 text-base">
                                                     No users found
                                                 </td>
                                             </tr>
@@ -218,17 +260,17 @@ export default function Dashboard() {
                                 </table>
 
                                 {/* Pagination Controls */}
-                                <div className="pagination-container">
-                                    <div className="pagination-info">
+                                <div className="flex flex-wrap justify-between items-center mt-6 pt-4 border-t border-slate-200 gap-4">
+                                    <div className="text-sm font-medium text-slate-600">
                                         Showing Page <strong>{page}</strong> of <strong>{totalPages}</strong> (Total <strong>{totalUsers}</strong> users)
                                     </div>
-                                    <div className="pagination-buttons">
-                                        <label htmlFor="limit-select" className="pagination-info">Per Page:</label>
+                                    <div className="flex items-center gap-3">
+                                        <label htmlFor="limit-select" className="text-sm font-medium text-slate-600">Per Page:</label>
                                         <select
                                             id="limit-select"
                                             value={limit}
                                             onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                                            className="limit-select"
+                                            className="px-3 py-1.5 border-2 border-indigo-500 rounded-md text-sm font-semibold bg-white text-slate-800 cursor-pointer"
                                         >
                                             <option value={5}>5</option>
                                             <option value={10}>10</option>
@@ -237,14 +279,14 @@ export default function Dashboard() {
                                         <button
                                             disabled={page <= 1 || tableLoading}
                                             onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                                            className="page-btn"
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-all cursor-pointer shadow"
                                         >
                                             Previous
                                         </button>
                                         <button
                                             disabled={page >= totalPages || tableLoading}
                                             onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                                            className="page-btn"
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-all cursor-pointer shadow"
                                         >
                                             Next
                                         </button>

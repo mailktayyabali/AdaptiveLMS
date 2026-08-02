@@ -3,7 +3,6 @@ import Main from "./components/Main.jsx";
 import Profile from "./pages/Dashboard.jsx";
 import GithubCallback from "./pages/GithubCallback.jsx";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import './App.css';
 
 import { ProfileProvider } from "./context/ProfileContext.jsx";
 
