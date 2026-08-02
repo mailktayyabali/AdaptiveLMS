@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 
+import path from 'path';
+
 import connectDB from './config/db.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
 
@@ -30,6 +32,9 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(generalLimiter);
+
+// Serve Uploaded Files Statically
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Mount Modular Routes
 app.use(authRoutes);

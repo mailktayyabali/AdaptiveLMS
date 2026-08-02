@@ -26,6 +26,15 @@ const TicketSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    attachments: [{
+        filename: { type: String, required: true },
+        originalName: { type: String, required: true },
+        mimeType: { type: String, required: true },
+        size: { type: Number, required: true },
+        path: { type: String, required: true },
+        thumbnailPath: { type: String, default: null },
+        uploadedAt: { type: Date, default: Date.now }
+    }],
     createdAt: {
         type: Date,
         default: Date.now
