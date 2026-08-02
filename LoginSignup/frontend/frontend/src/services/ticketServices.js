@@ -52,3 +52,37 @@ export async function deleteTicket(id) {
   }
   return res.json();
 }
+
+export async function uploadTicketAttachment(ticketId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`/api/tickets/${ticketId}/upload`, {
+    method: 'POST',
+    headers: headers,
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to upload attachment');
+  }
+  return res.json();
+}
+
+export async function deleteTicketAttachment(ticketId, attachmentId) {
+  const res = await authenticatedFetch(`/api/tickets/${ticketId}/upload/${attachmentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to delete attachment');
+  }
+  return res.json();
+}

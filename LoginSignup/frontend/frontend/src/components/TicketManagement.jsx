@@ -5,6 +5,8 @@ import {
   createTicket,
   updateTicket,
   deleteTicket,
+  uploadTicketAttachment,
+  deleteTicketAttachment,
 } from '../services/ticketServices.js';
 
 export default function TicketManagement() {
@@ -18,6 +20,9 @@ export default function TicketManagement() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
+  // Attachment upload loading state
+  const [uploadingTicketId, setUploadingTicketId] = useState(null);
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
@@ -25,8 +30,9 @@ export default function TicketManagement() {
     title: '',
     description: '',
     status: 'open',
-    internalPriority: 'P3-Medium',
+    internalPriority: 'Low',
   });
+  const [modalFile, setModalFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -52,8 +58,9 @@ export default function TicketManagement() {
       title: '',
       description: '',
       status: 'open',
-      internalPriority: 'P3-Medium',
+      internalPriority: 'Low',
     });
+    setModalFile(null);
     setIsModalOpen(true);
   };
 
@@ -63,14 +70,16 @@ export default function TicketManagement() {
       title: ticket.title || '',
       description: ticket.description || '',
       status: ticket.status || 'open',
-      internalPriority: ticket.internalPriority || 'P3-Medium',
+      internalPriority: ticket.internalPriority || 'Low',
     });
+    setModalFile(null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTicket(null);
+    setModalFile(null);
   };
 
   const handleSubmit = async (e) => {
@@ -80,6 +89,8 @@ export default function TicketManagement() {
     setSuccessMsg('');
 
     try {
+      let savedTicketId = editingTicket?._id;
+
       if (editingTicket) {
         const payload = {
           title: formData.title,
@@ -101,8 +112,19 @@ export default function TicketManagement() {
           payload.internalPriority = formData.internalPriority;
         }
         const res = await createTicket(payload);
+        savedTicketId = res.ticket?._id || res.ticketId;
         setSuccessMsg(res.message || 'Ticket created successfully');
       }
+
+      // If a file was selected in the modal, upload it to the ticket
+      if (modalFile && savedTicketId) {
+        try {
+          await uploadTicketAttachment(savedTicketId, modalFile);
+        } catch (uploadErr) {
+          setError(`Ticket saved, but attachment upload failed: ${uploadErr.message}`);
+        }
+      }
+
       handleCloseModal();
       loadTickets();
     } catch (err) {
@@ -122,6 +144,38 @@ export default function TicketManagement() {
       loadTickets();
     } catch (err) {
       setError(err.message || 'Failed to delete ticket');
+    }
+  };
+
+  const handleFileUpload = async (ticketId, event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploadingTicketId(ticketId);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await uploadTicketAttachment(ticketId, file);
+      setSuccessMsg(res.message || 'Attachment uploaded successfully');
+      await loadTickets();
+    } catch (err) {
+      setError(err.message || 'Failed to upload attachment');
+    } finally {
+      setUploadingTicketId(null);
+      event.target.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (ticketId, attachmentId) => {
+    if (!window.confirm('Delete this attachment?')) return;
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await deleteTicketAttachment(ticketId, attachmentId);
+      setSuccessMsg(res.message || 'Attachment deleted successfully');
+      await loadTickets();
+    } catch (err) {
+      setError(err.message || 'Failed to delete attachment');
     }
   };
 
@@ -147,8 +201,16 @@ export default function TicketManagement() {
 
   const getStatusBadge = (status) => {
     if (status === 'open') return 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-red-100 text-red-800';
-    if (status === 'in_progress') return 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-amber-100 text-amber-800';
+    if (status === 'in_progress' || status === 'in-progress') return 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-amber-100 text-amber-800';
     return 'inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-green-100 text-green-800';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   return (
@@ -170,13 +232,13 @@ export default function TicketManagement() {
       <div className="bg-slate-100 border-l-4 border-slate-500 p-3 text-xs text-slate-700 mb-4 rounded-r-md">
         Logged in as <strong>{user?.name}</strong> ({user?.role?.toUpperCase()}). 
         {user?.role === 'user' && ' You have view-only access.'}
-        {user?.role === 'manager' && ' You can create tickets and edit/delete your own.'}
-        {user?.role === 'admin' && ' You have full admin access to edit/delete any ticket.'}
+        {user?.role === 'manager' && ' You can create tickets, edit/delete your own, and attach files.'}
+        {user?.role === 'admin' && ' You have full admin access to edit, attach files, and delete tickets.'}
       </div>
 
       {/* Error / Success messages */}
-      {error && <div className="text-red-600 text-sm mb-3 font-medium">⚠️ {error}</div>}
-      {successMsg && <div className="text-green-600 text-sm mb-3 font-medium">✅ {successMsg}</div>}
+      {error && <div className="text-red-600 text-sm mb-3 font-medium bg-red-50 p-2.5 rounded-md border border-red-200">⚠️ {error}</div>}
+      {successMsg && <div className="text-green-600 text-sm mb-3 font-medium bg-green-50 p-2.5 rounded-md border border-green-200">✅ {successMsg}</div>}
 
       {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -199,71 +261,141 @@ export default function TicketManagement() {
         </select>
       </div>
 
-      {/* Tickets Table */}
+      {/* Tickets Card Grid */}
       {loading ? (
         <p className="text-slate-500 py-6 text-center">Loading tickets...</p>
       ) : filteredTickets.length === 0 ? (
         <p className="text-slate-500 py-10 text-center">No tickets found.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm mt-2">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 text-left border-b-2 border-slate-200">
-                <th className="p-3 font-semibold">Title</th>
-                <th className="p-3 font-semibold">Description</th>
-                <th className="p-3 font-semibold">Status</th>
-                <th className="p-3 font-semibold">Owner</th>
-                {user?.role === 'admin' && <th className="p-3 font-semibold">Internal Priority</th>}
-                <th className="p-3 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredTickets.map((t) => {
-                const ownerName = t.owner?.name || t.owner?.username || 'Unknown';
-                return (
-                  <tr key={t._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-slate-900">{t.title}</td>
-                    <td className="p-3 text-slate-600 max-w-[280px] truncate">{t.description}</td>
-                    <td className="p-3">
-                      <span className={getStatusBadge(t.status)}>
-                        {t.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-700">{ownerName}</td>
-                    {user?.role === 'admin' && (
-                      <td className="p-3">
-                        {t.internalPriority ? (
-                          <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-medium">
-                            {t.internalPriority}
-                          </span>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                    )}
-                    <td className="p-3">
-                      <div className="flex gap-2">
-                        <button
-                          className="bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer"
-                          disabled={!canEditTicket(t)}
-                          onClick={() => handleOpenEditModal(t)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer"
-                          disabled={!canDeleteTicket(t)}
-                          onClick={() => handleDelete(t._id)}
-                        >
-                          Delete
-                        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+          {filteredTickets.map((t) => {
+            const ownerName = t.owner?.name || t.owner?.username || 'Unknown';
+            const canEdit = canEditTicket(t);
+            const isUploadingThis = uploadingTicketId === t._id;
+
+            return (
+              <div
+                key={t._id}
+                className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-md flex flex-col justify-between hover:shadow-lg transition-all"
+              >
+                <div>
+                  {/* Card Top: Title & Badges */}
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <h3 className="font-bold text-base text-slate-900 line-clamp-1" title={t.title}>
+                      {t.title}
+                    </h3>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={getStatusBadge(t.status)}>{t.status.replace('_', ' ')}</span>
+                      {user?.role === 'admin' && t.internalPriority && (
+                        <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-semibold">
+                          {t.internalPriority}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-slate-600 text-xs mb-3 leading-relaxed line-clamp-3">
+                    {t.description}
+                  </p>
+
+                  {/* Owner Info */}
+                  <div className="text-[11px] text-slate-500 mb-3 flex items-center gap-1">
+                    <span>👤</span> <span>Owner: <strong>{ownerName}</strong></span>
+                  </div>
+
+                  {/* Attachments Section with Thumbnails */}
+                  {t.attachments && t.attachments.length > 0 && (
+                    <div className="mb-3">
+                      <div className="text-xs font-semibold text-slate-700 mb-1.5">Attachments:</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {t.attachments.map((att) => {
+                          const isImage = att.mimeType?.startsWith('image/');
+                          const imgUrl = att.thumbnailPath || att.path;
+                          return (
+                            <div
+                              key={att._id}
+                              className="relative group rounded-lg overflow-hidden border border-slate-200 bg-white p-1 shadow-sm"
+                            >
+                              {isImage ? (
+                                <div className="w-full h-24 overflow-hidden rounded bg-slate-100 flex items-center justify-center">
+                                  <img
+                                    src={imgUrl}
+                                    alt={att.originalName || att.filename}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-full h-24 rounded bg-slate-100 flex flex-col items-center justify-center p-2 text-center">
+                                  <span className="text-2xl mb-1">📄</span>
+                                  <span className="text-[10px] font-medium text-slate-700 truncate w-full" title={att.originalName}>
+                                    {att.originalName || att.filename}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400">{formatFileSize(att.size)}</span>
+                                </div>
+                              )}
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAttachment(t._id, att._id)}
+                                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer"
+                                  title="Delete attachment"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Footer: Attach & Action Buttons */}
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2 mt-2">
+                  {canEdit ? (
+                    <label className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer">
+                      {isUploadingThis ? (
+                        <span className="animate-spin">⏳</span>
+                      ) : (
+                        <span>📎 Attach File</span>
+                      )}
+                      <input
+                        type="file"
+                        className="hidden"
+                        disabled={isUploadingThis}
+                        onChange={(e) => handleFileUpload(t._id, e)}
+                      />
+                    </label>
+                  ) : (
+                    <div></div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="bg-slate-200 hover:bg-slate-300 text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                      disabled={!canEdit}
+                      onClick={() => handleOpenEditModal(t)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="bg-red-100 hover:bg-red-200 text-red-700 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                      disabled={!canDeleteTicket(t)}
+                      onClick={() => handleDelete(t._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -316,11 +448,47 @@ export default function TicketManagement() {
                     onChange={(e) => setFormData({ ...formData, internalPriority: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="P1-Urgent">P1 - Urgent</option>
-                    <option value="P2-High">P2 - High</option>
-                    <option value="P3-Medium">P3 - Medium</option>
-                    <option value="P4-Low">P4 - Low</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
                   </select>
+                </div>
+              )}
+
+              {/* Attach File Field in Modal */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-600">Attach File (Optional)</label>
+                <input
+                  type="file"
+                  onChange={(e) => setModalFile(e.target.files[0] || null)}
+                  className="w-full text-xs text-slate-600 border border-slate-300 rounded-lg p-1.5 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+              </div>
+
+              {/* Show existing attachments if editing */}
+              {editingTicket && editingTicket.attachments && editingTicket.attachments.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600">Current Attachments</label>
+                  <div className="flex flex-wrap gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    {editingTicket.attachments.map((att) => (
+                      <div
+                        key={att._id}
+                        className="inline-flex items-center gap-1.5 bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-700 shadow-sm"
+                      >
+                        <span>{att.mimeType?.startsWith('image/') ? '🖼️' : '📄'}</span>
+                        <span className="font-medium max-w-[120px] truncate">{att.originalName || att.filename}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(editingTicket._id, att._id)}
+                          className="ml-1 text-red-500 hover:text-red-700 font-bold hover:bg-red-50 rounded px-1 transition-colors"
+                          title="Delete attachment"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
