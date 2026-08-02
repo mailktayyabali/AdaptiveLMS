@@ -119,7 +119,27 @@ export const updateTicket = async (req, res) => {
     }
 };
 
-// 5. DELETE Ticket (Enforces Ownership)
+// Helper to remove attachment files from disk safely
+const removeAttachmentFilesFromDisk = async (attachment) => {
+    try {
+        if (attachment.path) {
+            const originalFullPath = path.join(process.cwd(), attachment.path.replace(/^\//, ''));
+            if (fs.existsSync(originalFullPath)) {
+                await fs.promises.unlink(originalFullPath).catch(() => {});
+            }
+        }
+        if (attachment.thumbnailPath) {
+            const thumbFullPath = path.join(process.cwd(), attachment.thumbnailPath.replace(/^\//, ''));
+            if (fs.existsSync(thumbFullPath)) {
+                await fs.promises.unlink(thumbFullPath).catch(() => {});
+            }
+        }
+    } catch (err) {
+        console.error('Error removing attachment file from disk:', err);
+    }
+};
+
+// 5. DELETE Ticket (Enforces Ownership & Performs Cascade File Cleanup)
 export const deleteTicket = async (req, res) => {
     try {
         // Query-Level Ownership Check
@@ -127,7 +147,7 @@ export const deleteTicket = async (req, res) => {
             ? { _id: req.params.id }
             : { _id: req.params.id, owner: req.user.id || req.user._id };
 
-        const ticket = await Ticket.findOneAndDelete(query);
+        const ticket = await Ticket.findOne(query);
 
         if (!ticket) {
             return res.status(403).json({
@@ -136,7 +156,16 @@ export const deleteTicket = async (req, res) => {
             });
         }
 
-        res.json({ success: true, message: 'Ticket deleted successfully.' });
+        // Cascade Cleanup: Delete all associated attachment files from disk
+        if (ticket.attachments && ticket.attachments.length > 0) {
+            for (const att of ticket.attachments) {
+                await removeAttachmentFilesFromDisk(att);
+            }
+        }
+
+        await Ticket.deleteOne({ _id: ticket._id });
+
+        res.json({ success: true, message: 'Ticket and associated files deleted successfully.' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -211,6 +240,54 @@ export const uploadAttachment = async (req, res) => {
         if (req.file && fs.existsSync(req.file.path)) {
             await fs.promises.unlink(req.file.path).catch(() => {});
         }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// 7. DELETE Ticket Attachment (Enforces Ownership & File Cleanup)
+export const deleteAttachment = async (req, res) => {
+    try {
+        const { id, attachmentId } = req.params;
+
+        const query = req.user.role === 'admin'
+            ? { _id: id }
+            : { _id: id, owner: req.user.id || req.user._id };
+
+        const ticket = await Ticket.findOne(query);
+
+        if (!ticket) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You can only delete attachments from your own tickets.'
+            });
+        }
+
+        const attachmentIndex = ticket.attachments.findIndex(
+            att => String(att._id) === String(attachmentId)
+        );
+
+        if (attachmentIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Attachment not found.'
+            });
+        }
+
+        const attachment = ticket.attachments[attachmentIndex];
+
+        // Remove files from disk
+        await removeAttachmentFilesFromDisk(attachment);
+
+        // Remove attachment from ticket subdocument array
+        ticket.attachments.splice(attachmentIndex, 1);
+        await ticket.save();
+
+        res.json({
+            success: true,
+            message: 'Attachment deleted successfully!',
+            ticket: sanitizeTicket(ticket, req.user.role)
+        });
+    } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };

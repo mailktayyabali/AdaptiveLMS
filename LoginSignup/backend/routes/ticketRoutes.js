@@ -5,7 +5,8 @@ import {
     getTicketById, 
     updateTicket, 
     deleteTicket,
-    uploadAttachment 
+    uploadAttachment,
+    deleteAttachment
 } from '../controllers/ticketController.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 import { handleSingleUpload } from '../middleware/uploadMiddleware.js';
@@ -24,6 +25,9 @@ router.post('/', authorizeRoles('manager', 'admin'), createTicket);
 
 // Attach file/image to a ticket
 router.post('/:id/upload', authorizeRoles('manager', 'admin'), handleSingleUpload('file'), uploadAttachment);
+
+// Delete attachment from a ticket
+router.delete('/:id/upload/:attachmentId', authorizeRoles('manager', 'admin'), deleteAttachment);
 
 // Editors ('manager') & Admins ('admin') can update tickets
 router.put('/:id', authorizeRoles('manager', 'admin'), updateTicket);
