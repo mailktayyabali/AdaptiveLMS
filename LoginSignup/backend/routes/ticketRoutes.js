@@ -4,9 +4,11 @@ import {
     getTickets, 
     getTicketById, 
     updateTicket, 
-    deleteTicket 
+    deleteTicket,
+    uploadAttachment 
 } from '../controllers/ticketController.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+import { handleSingleUpload } from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
@@ -19,6 +21,9 @@ router.get('/:id', authorizeRoles('user', 'manager', 'admin'), getTicketById);
 
 // Editors ('manager') & Admins ('admin') can create tickets
 router.post('/', authorizeRoles('manager', 'admin'), createTicket);
+
+// Attach file/image to a ticket
+router.post('/:id/upload', authorizeRoles('manager', 'admin'), handleSingleUpload('file'), uploadAttachment);
 
 // Editors ('manager') & Admins ('admin') can update tickets
 router.put('/:id', authorizeRoles('manager', 'admin'), updateTicket);

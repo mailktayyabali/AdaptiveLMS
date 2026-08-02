@@ -1,4 +1,7 @@
 import Ticket from '../models/Ticket.js';
+import sharp from 'sharp';
+import path from 'path';
+import fs from 'fs';
 
 // Helper function to strip field-level restricted data for non-admins
 const sanitizeTicket = (ticket, userRole) => {
@@ -135,6 +138,79 @@ export const deleteTicket = async (req, res) => {
 
         res.json({ success: true, message: 'Ticket deleted successfully.' });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// 6. UPLOAD Ticket Attachment (Enforces Ownership & Sharp Thumbnail Processing)
+export const uploadAttachment = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Please select a file to upload.' });
+        }
+
+        // Ownership Check: Only Admin or Ticket Owner can upload attachment
+        const query = req.user.role === 'admin'
+            ? { _id: req.params.id }
+            : { _id: req.params.id, owner: req.user.id || req.user._id };
+
+        const ticket = await Ticket.findOne(query);
+
+        if (!ticket) {
+            // Delete uploaded file if user is unauthorized
+            if (fs.existsSync(req.file.path)) {
+                await fs.promises.unlink(req.file.path).catch(() => {});
+            }
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. You can only attach files to your own tickets.'
+            });
+        }
+
+        let thumbnailPath = null;
+        const isImage = req.file.mimetype.startsWith('image/');
+
+        // Sharp Thumbnail Processing for Images
+        if (isImage) {
+            try {
+                const thumbFilename = `thumb-${req.file.filename}`;
+                const thumbDir = path.join(process.cwd(), 'uploads', 'thumbnails');
+                const thumbFullPath = path.join(thumbDir, thumbFilename);
+
+                await sharp(req.file.path)
+                    .resize(200, 200, { fit: 'cover' })
+                    .toFile(thumbFullPath);
+
+                thumbnailPath = `/uploads/thumbnails/${thumbFilename}`;
+            } catch (sharpError) {
+                console.error('Sharp thumbnail generation error:', sharpError);
+                thumbnailPath = null;
+            }
+        }
+
+        const newAttachment = {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            mimeType: req.file.mimetype,
+            size: req.file.size,
+            path: `/uploads/originals/${req.file.filename}`,
+            thumbnailPath: thumbnailPath,
+            uploadedAt: new Date()
+        };
+
+        ticket.attachments.push(newAttachment);
+        await ticket.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Attachment uploaded successfully!',
+            attachment: newAttachment,
+            ticket: sanitizeTicket(ticket, req.user.role)
+        });
+    } catch (error) {
+        if (req.file && fs.existsSync(req.file.path)) {
+            await fs.promises.unlink(req.file.path).catch(() => {});
+        }
         res.status(500).json({ success: false, message: error.message });
     }
 };
