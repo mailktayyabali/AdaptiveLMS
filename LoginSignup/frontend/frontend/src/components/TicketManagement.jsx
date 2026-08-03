@@ -301,7 +301,7 @@ export default function TicketManagement() {
 
                   {/* Owner Info */}
                   <div className="text-[11px] text-slate-500 mb-3 flex items-center gap-1">
-                    <span>👤</span> <span>Owner: <strong>{ownerName}</strong></span>
+                   <span>Owner: <strong>{ownerName}</strong></span>
                   </div>
 
                   {/* Attachments Section with Thumbnails */}
