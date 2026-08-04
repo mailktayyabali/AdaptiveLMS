@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-
+import { createServer } from 'http';
 import path from 'path';
 
 import connectDB from './config/db.js';
@@ -13,6 +13,9 @@ import authRoutes from './routes/authRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import ticketRoutes from './routes/ticketRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+
+import { initSocket } from './utils/socket.js';
 
 dotenv.config();
 
@@ -20,6 +23,10 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
 
 // Global Middlewares
 app.use(
@@ -41,14 +48,15 @@ app.use(authRoutes);
 app.use(otpRoutes);
 app.use(userRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
     res.send('Backend is working');
 });
 
-// Start Server
+// Start Server using httpServer
 const port = process.env.PORT || 5000;
-app.listen(port, () => {
+httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });

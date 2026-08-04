@@ -2,6 +2,7 @@ import Ticket from '../models/Ticket.js';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
+import { createAndSendNotification } from '../utils/socket.js';
 
 // Helper function to strip field-level restricted data for non-admins
 const sanitizeTicket = (ticket, userRole) => {
@@ -109,6 +110,18 @@ export const updateTicket = async (req, res) => {
 
         await ticket.save();
 
+        // Trigger Real-Time Notification to Ticket Owner if updated by admin/manager
+        const senderId = req.user.id || req.user._id;
+        if (ticket.owner && ticket.owner.toString() !== senderId.toString()) {
+            await createAndSendNotification({
+                recipientId: ticket.owner,
+                senderId: senderId,
+                type: 'TICKET_UPDATED',
+                message: `Your ticket "${ticket.title}" has been updated. Status: ${ticket.status}`,
+                relatedTicket: ticket._id
+            });
+        }
+
         res.json({
             success: true,
             message: 'Ticket updated successfully!',
@@ -164,6 +177,18 @@ export const deleteTicket = async (req, res) => {
         }
 
         await Ticket.deleteOne({ _id: ticket._id });
+
+        // Trigger Real-Time Notification to Ticket Owner if deleted by admin
+        const senderId = req.user.id || req.user._id;
+        if (ticket.owner && ticket.owner.toString() !== senderId.toString()) {
+            await createAndSendNotification({
+                recipientId: ticket.owner,
+                senderId: senderId,
+                type: 'TICKET_DELETED',
+                message: `Your ticket "${ticket.title}" was deleted.`,
+                relatedTicket: ticket._id
+            });
+        }
 
         res.json({ success: true, message: 'Ticket and associated files deleted successfully.' });
     } catch (error) {
@@ -230,6 +255,18 @@ export const uploadAttachment = async (req, res) => {
         ticket.attachments.push(newAttachment);
         await ticket.save();
 
+        // Trigger Real-Time Notification to Ticket Owner
+        const senderId = req.user.id || req.user._id;
+        if (ticket.owner && ticket.owner.toString() !== senderId.toString()) {
+            await createAndSendNotification({
+                recipientId: ticket.owner,
+                senderId: senderId,
+                type: 'FILE_UPLOADED',
+                message: `New file "${req.file.originalname}" was uploaded to your ticket "${ticket.title}"`,
+                relatedTicket: ticket._id
+            });
+        }
+
         res.status(201).json({
             success: true,
             message: 'Attachment uploaded successfully!',
@@ -281,6 +318,18 @@ export const deleteAttachment = async (req, res) => {
         // Remove attachment from ticket subdocument array
         ticket.attachments.splice(attachmentIndex, 1);
         await ticket.save();
+
+        // Trigger Real-Time Notification to Ticket Owner
+        const senderId = req.user.id || req.user._id;
+        if (ticket.owner && ticket.owner.toString() !== senderId.toString()) {
+            await createAndSendNotification({
+                recipientId: ticket.owner,
+                senderId: senderId,
+                type: 'FILE_DELETED',
+                message: `Attachment "${attachment.originalName || attachment.filename}" was deleted from your ticket "${ticket.title}"`,
+                relatedTicket: ticket._id
+            });
+        }
 
         res.json({
             success: true,
