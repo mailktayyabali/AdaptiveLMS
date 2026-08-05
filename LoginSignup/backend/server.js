@@ -14,6 +14,7 @@ import otpRoutes from './routes/otpRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import ticketRoutes from './routes/ticketRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import permissionRoutes from './routes/permissionRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -49,6 +50,7 @@ app.use(otpRoutes);
 app.use(userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/permissions', permissionRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
