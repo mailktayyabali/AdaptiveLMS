@@ -8,10 +8,12 @@ import {
   uploadTicketAttachment,
   deleteTicketAttachment,
 } from '../services/ticketServices.js';
+import { fetchMyPermissions } from '../services/authServices.js';
 
 export default function TicketManagement() {
   const { user } = useContext(ProfileContext);
   const [tickets, setTickets] = useState([]);
+  const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -37,7 +39,19 @@ export default function TicketManagement() {
 
   useEffect(() => {
     loadTickets();
+    loadPermissions();
   }, []);
+
+  const loadPermissions = async () => {
+    try {
+      const res = await fetchMyPermissions();
+      if (res.success) {
+        setPermissions(res.permission);
+      }
+    } catch (err) {
+      console.error('Failed to load user permissions', err);
+    }
+  };
 
   const loadTickets = async () => {
     setLoading(true);
@@ -186,9 +200,13 @@ export default function TicketManagement() {
     return String(ticketOwnerId) === String(currentUserId);
   };
 
-  const canCreate = user?.role === 'admin' || user?.role === 'manager';
-  const canEditTicket = (t) => user?.role === 'admin' || (user?.role === 'manager' && isTicketOwner(t));
-  const canDeleteTicket = (t) => user?.role === 'admin' || (user?.role === 'manager' && isTicketOwner(t));
+  const hasCreatePerm = permissions ? permissions.canCreateTicket : (user?.role === 'manager');
+  const hasUpdatePerm = permissions ? permissions.canUpdateTicket : (user?.role === 'manager');
+  const hasDeletePerm = permissions ? permissions.canDeleteTicket : (user?.role === 'manager');
+
+  const canCreate = user?.role === 'admin' || hasCreatePerm;
+  const canEditTicket = (t) => user?.role === 'admin' || (hasUpdatePerm && isTicketOwner(t));
+  const canDeleteTicket = (t) => user?.role === 'admin' || (hasDeletePerm && isTicketOwner(t));
 
   const filteredTickets = tickets.filter((t) => {
     const matchesSearch =
@@ -229,11 +247,18 @@ export default function TicketManagement() {
       </div>
 
       {/* Role Notice */}
-      <div className="bg-slate-100 border-l-4 border-slate-500 p-3 text-xs text-slate-700 mb-4 rounded-r-md">
-        Logged in as <strong>{user?.name}</strong> ({user?.role?.toUpperCase()}). 
-        {user?.role === 'user' && ' You have view-only access.'}
-        {user?.role === 'manager' && ' You can create tickets, edit/delete your own, and attach files.'}
-        {user?.role === 'admin' && ' You have full admin access to edit, attach files, and delete tickets.'}
+      <div className="bg-slate-100 border-l-4 border-indigo-500 p-3 text-xs text-slate-700 mb-4 rounded-r-md flex flex-wrap justify-between items-center gap-2">
+        <div>
+          Logged in as <strong>{user?.name}</strong> ({user?.role?.toUpperCase()}). 
+          {user?.role === 'admin' ? ' You have full admin permissions.' : ' Your active permissions are configured below.'}
+        </div>
+        {user?.role !== 'admin' && (
+          <div className="flex items-center gap-2 text-[11px] font-semibold">
+            <span className={canCreate ? 'text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded' : 'text-slate-400 bg-slate-200 px-2 py-0.5 rounded line-through'}>Create</span>
+            <span className={canEditTicket ? 'text-amber-700 bg-amber-100 px-2 py-0.5 rounded' : 'text-slate-400 bg-slate-200 px-2 py-0.5 rounded line-through'}>Update</span>
+            <span className={canDeleteTicket ? 'text-rose-700 bg-rose-100 px-2 py-0.5 rounded' : 'text-slate-400 bg-slate-200 px-2 py-0.5 rounded line-through'}>Delete</span>
+          </div>
+        )}
       </div>
 
       {/* Error / Success messages */}
