@@ -1,7 +1,7 @@
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchRoleData, fetchUsers, assignRoleToUser } from '../services/authServices.js';
+import { fetchRoleData, fetchUsers, assignRoleToUser, fetchAllPermissions, updateUserPermissions } from '../services/authServices.js';
 import TicketManagement from '../components/TicketManagement.jsx';
 
 export default function Dashboard() {
@@ -9,6 +9,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [roleData, setRoleData] = useState(null);
     const [users, setUsers] = useState([]);
+    const [permissionsMap, setPermissionsMap] = useState({});
     const [initialLoading, setInitialLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState('');
@@ -67,10 +68,17 @@ export default function Dashboard() {
         const loadAdminUsers = async () => {
             setTableLoading(true);
             try {
-                const usersData = await fetchUsers({ page, limit, sortBy, sortOrder, search: debouncedSearch });
+                const [usersData, permData] = await Promise.all([
+                    fetchUsers({ page, limit, sortBy, sortOrder, search: debouncedSearch }),
+                    fetchAllPermissions().catch(() => ({ success: false }))
+                ]);
                 setUsers(usersData.users || []);
                 setTotalPages(usersData.totalPages || 1);
                 setTotalUsers(usersData.totalUsers || 0);
+
+                if (permData && permData.success) {
+                    setPermissionsMap(permData.permissions || {});
+                }
             } catch (err) {
                 setError(err.message || 'Failed to fetch users');
             } finally {
@@ -80,6 +88,34 @@ export default function Dashboard() {
 
         loadAdminUsers();
     }, [user, page, limit, sortBy, sortOrder, debouncedSearch]);
+
+    const handlePermissionToggle = async (userId, field, currentValue) => {
+        try {
+            const userPerm = permissionsMap[userId] || {};
+            const updatedValue = !currentValue;
+            const updatedPerm = { ...userPerm, [field]: updatedValue };
+
+            // Optimistic update
+            setPermissionsMap(prev => ({ ...prev, [userId]: updatedPerm }));
+
+            const response = await updateUserPermissions(userId, {
+                canCreateTicket: updatedPerm.canCreateTicket ?? false,
+                canReadTicket: updatedPerm.canReadTicket ?? true,
+                canUpdateTicket: updatedPerm.canUpdateTicket ?? false,
+                canDeleteTicket: updatedPerm.canDeleteTicket ?? false
+            });
+
+            if (response.success && response.permission) {
+                setPermissionsMap(prev => ({ ...prev, [userId]: response.permission }));
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to update user permission');
+            const permData = await fetchAllPermissions().catch(() => ({ success: false }));
+            if (permData && permData.success) {
+                setPermissionsMap(permData.permissions || {});
+            }
+        }
+    };
 
     const handleSort = (field) => {
         if (sortBy === field) {
@@ -222,6 +258,7 @@ export default function Dashboard() {
                                                 Current Role {renderSortIcon('role')}
                                             </th>
                                             <th className="p-4 text-center font-semibold">Assign Role</th>
+                                            <th className="p-4 text-center font-semibold">Ticket Permissions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
@@ -247,11 +284,54 @@ export default function Dashboard() {
                                                             <option value="admin">Admin</option>
                                                         </select>
                                                     </td>
+                                                    <td className="p-4 text-center">
+                                                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canCreateTicket ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                    onChange={() => handlePermissionToggle(u._id, 'canCreateTicket', permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Create</span>
+                                                            </label>
+
+                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canReadTicket ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={permissionsMap[u._id]?.canReadTicket ?? true}
+                                                                    onChange={() => handlePermissionToggle(u._id, 'canReadTicket', permissionsMap[u._id]?.canReadTicket ?? true)}
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Read</span>
+                                                            </label>
+
+                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canUpdateTicket ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                    onChange={() => handlePermissionToggle(u._id, 'canUpdateTicket', permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Update</span>
+                                                            </label>
+
+                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canDeleteTicket ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                    onChange={() => handlePermissionToggle(u._id, 'canDeleteTicket', permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Delete</span>
+                                                            </label>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="5" className="text-center py-10 text-slate-500 text-base">
+                                                <td colSpan="6" className="text-center py-10 text-slate-500 text-base">
                                                     No users found
                                                 </td>
                                             </tr>

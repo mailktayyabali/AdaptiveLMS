@@ -174,4 +174,43 @@ export async function githubLogin(code) {
   return data;
 }
 
+export async function fetchMyPermissions() {
+  const response = await authenticatedFetch('/api/permissions/me');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch permissions');
+  }
+  return response.json();
+}
+
+export async function fetchAllPermissions() {
+  const response = await authenticatedFetch('http://localhost:5000/api/permissions');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch all permissions');
+  }
+  return response.json();
+}
+
+export async function fetchUserPermissions(userId) {
+  const response = await authenticatedFetch(`http://localhost:5000/api/permissions/${userId}`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch user permissions');
+  }
+  return response.json();
+}
+
+export async function updateUserPermissions(userId, permissionData) {
+  const response = await authenticatedFetch(`http://localhost:5000/api/permissions/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(permissionData)
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update user permissions');
+  }
+  return response.json();
+}
+
 export { login as loginUser, signup as signupUser, fetchUsers as fetchAllUsers, assignRoleToUser as assignRole};
