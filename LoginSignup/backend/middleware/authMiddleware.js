@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getOrCreateUserPermission } from '../controllers/permissionController.js';
 
 // Authentication Middleware
 export const authenticateToken = (req, res, next) => {
@@ -25,5 +26,35 @@ export const authorizeRoles = (...roles) => {
             return res.status(403).json({ success: false, message: 'Access denied. Unauthorized role.' });
         }
         next();
+    };
+};
+
+// Dynamic Permission Authorization Middleware
+export const checkPermission = (action) => {
+    return async (req, res, next) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({ success: false, message: 'Access denied. Authentication required.' });
+            }
+
+            // Admin always has full administrative access
+            if (req.user.role === 'admin') {
+                return next();
+            }
+
+            const permission = await getOrCreateUserPermission(req.user);
+
+            if (!permission || !permission[action]) {
+                return res.status(403).json({
+                    success: false,
+                    message: `Access denied. You do not have permission to perform '${action}'.`
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Permission check error:', error);
+            res.status(500).json({ success: false, message: 'Failed to verify permissions' });
+        }
     };
 };

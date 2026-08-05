@@ -33,13 +33,13 @@ export const initSocket = (httpServer) => {
 
     io.on('connection', (socket) => {
         const userId = socket.user.id || socket.user._id;
-        console.log(`⚡ User connected to Socket: ${userId} (Socket ID: ${socket.id})`);
+        console.log(` User connected to Socket: ${userId} (Socket ID: ${socket.id})`);
 
         // User joins private room keyed by their user ID
         socket.join(userId.toString());
 
         socket.on('disconnect', () => {
-            console.log(`🔥 User disconnected from Socket: ${userId}`);
+            console.log(`User disconnected from Socket: ${userId}`);
         });
     });
 
