@@ -5,31 +5,34 @@ import User from '../models/User.js';
 // 1. Get all roles with populated permissions (auto-initializes system roles if empty)
 export const getAllRoles = async (req, res) => {
     try {
-        let roles = await Role.find({}).populate('permissions');
+        // Drop legacy strict user_1 index if it exists in MongoDB
+        await Permission.collection.dropIndex('user_1').catch(() => {});
 
-        if (roles.length === 0) {
-            const defaultRoles = [
-                {
-                    name: 'admin',
-                    description: 'Full administrative access across system',
-                    isSystem: true,
-                    perms: { canCreateTicket: true, canReadTicket: true, canUpdateTicket: true, canDeleteTicket: true }
-                },
-                {
-                    name: 'manager',
-                    description: 'Management access to tickets and workflows',
-                    isSystem: true,
-                    perms: { canCreateTicket: true, canReadTicket: true, canUpdateTicket: true, canDeleteTicket: true }
-                },
-                {
-                    name: 'user',
-                    description: 'Standard viewer user account',
-                    isSystem: true,
-                    perms: { canCreateTicket: false, canReadTicket: true, canUpdateTicket: false, canDeleteTicket: false }
-                }
-            ];
+        const defaultRoles = [
+            {
+                name: 'admin',
+                description: 'Full administrative access across system',
+                isSystem: true,
+                perms: { canCreateTicket: true, canReadTicket: true, canUpdateTicket: true, canDeleteTicket: true }
+            },
+            {
+                name: 'manager',
+                description: 'Management access to tickets and workflows',
+                isSystem: true,
+                perms: { canCreateTicket: true, canReadTicket: true, canUpdateTicket: true, canDeleteTicket: true }
+            },
+            {
+                name: 'user',
+                description: 'Standard viewer user account',
+                isSystem: true,
+                perms: { canCreateTicket: false, canReadTicket: true, canUpdateTicket: false, canDeleteTicket: false }
+            }
+        ];
 
-            for (const def of defaultRoles) {
+        // Ensure all 3 default system roles exist in DB
+        for (const def of defaultRoles) {
+            let role = await Role.findOne({ name: new RegExp(`^${def.name}$`, 'i') });
+            if (!role) {
                 const perm = new Permission({
                     canCreateTicket: def.perms.canCreateTicket,
                     canReadTicket: def.perms.canReadTicket,
@@ -38,8 +41,8 @@ export const getAllRoles = async (req, res) => {
                 });
                 await perm.save();
 
-                const role = new Role({
-                    name: def.name,
+                role = new Role({
+                    name: def.name.toLowerCase(),
                     description: def.description,
                     permissions: perm._id,
                     isSystem: def.isSystem
@@ -48,11 +51,24 @@ export const getAllRoles = async (req, res) => {
 
                 perm.role = role._id;
                 await perm.save();
+            } else if (!role.permissions) {
+                let perm = await Permission.findOne({ role: role._id });
+                if (!perm) {
+                    perm = new Permission({
+                        role: role._id,
+                        canCreateTicket: def.perms.canCreateTicket,
+                        canReadTicket: def.perms.canReadTicket,
+                        canUpdateTicket: def.perms.canUpdateTicket,
+                        canDeleteTicket: def.perms.canDeleteTicket
+                    });
+                    await perm.save();
+                }
+                role.permissions = perm._id;
+                await role.save();
             }
-
-            roles = await Role.find({}).populate('permissions');
         }
 
+        const roles = await Role.find({}).populate('permissions');
         res.json({ success: true, roles });
     } catch (error) {
         console.error('Fetch roles error:', error);
@@ -66,7 +82,7 @@ export const updateRolePermissions = async (req, res) => {
         const { roleName } = req.params;
         const { canCreateTicket, canReadTicket, canUpdateTicket, canDeleteTicket } = req.body;
 
-        const role = await Role.findOne({ name: roleName.toLowerCase() }).populate('permissions');
+        const role = await Role.findOne({ name: new RegExp(`^${roleName}$`, 'i') }).populate('permissions');
         if (!role) {
             return res.status(404).json({ success: false, message: 'Role not found' });
         }
@@ -110,7 +126,7 @@ export const createRole = async (req, res) => {
         }
 
         const roleNameLower = name.trim().toLowerCase();
-        const existingRole = await Role.findOne({ name: roleNameLower });
+        const existingRole = await Role.findOne({ name: new RegExp(`^${roleNameLower}$`, 'i') });
         if (existingRole) {
             return res.status(400).json({ success: false, message: 'Role with this name already exists' });
         }

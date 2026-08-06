@@ -33,4 +33,20 @@ const PermissionSchema = new mongoose.Schema({
     }
 });
 
-export default mongoose.model('Permission', PermissionSchema);
+// Create partial indexes so null user/role fields don't collide
+PermissionSchema.index(
+    { user: 1 },
+    { unique: true, partialFilterExpression: { user: { $type: 'objectId' } } }
+);
+
+PermissionSchema.index(
+    { role: 1 },
+    { unique: true, partialFilterExpression: { role: { $type: 'objectId' } } }
+);
+
+const Permission = mongoose.model('Permission', PermissionSchema);
+
+// Safely drop legacy strict user_1 index if present in MongoDB
+Permission.syncIndexes().catch(() => {});
+
+export default Permission;

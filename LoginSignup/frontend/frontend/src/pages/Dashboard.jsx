@@ -104,6 +104,23 @@ export default function Dashboard() {
         loadAdminUsers();
     }, [user, page, limit, sortBy, sortOrder, debouncedSearch]);
 
+    const loadRoles = async () => {
+        try {
+            const data = await fetchRoles();
+            if (data && data.success) {
+                setRoles(data.roles || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch roles:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (user && user.role === 'admin') {
+            loadRoles();
+        }
+    }, [user, activeTab]);
+
     const handleRolePermissionToggle = async (roleName, field, currentValue) => {
         try {
             const targetRole = roles.find(r => r.name === roleName);
