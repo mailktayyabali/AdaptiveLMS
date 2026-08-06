@@ -1,12 +1,10 @@
 import Permission from '../models/Permission.js';
 import User from '../models/User.js';
 
-// Helper function to get or create default permissions for a user based on role
 export const getOrCreateUserPermission = async (user) => {
     let permission = await Permission.findOne({ user: user._id || user.id });
 
     if (!permission) {
-        // Defaults: admins & managers have full ticket permissions by default; regular users have read-only by default
         const isManagerOrAdmin = ['admin', 'manager'].includes(user.role);
 
         permission = new Permission({

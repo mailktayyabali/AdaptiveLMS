@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { toast } from 'react-toastify';
 
 export default function NotificationBell() {
     const [notifications, setNotifications] = useState([]);
@@ -7,34 +8,58 @@ export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-        if (!token) return;
+        let socketInstance = null;
 
-        // Fetch initial notification history from REST API
-        fetchNotifications(token);
+        const connectSocket = () => {
+            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+            if (!token || socketInstance) return;
 
-        // Connect to Socket.io Server with JWT Token
-        const socket = io('http://localhost:5000', {
-            auth: { token },
-            transports: ['websocket', 'polling']
-        });
+            fetchNotifications(token);
 
-        socket.on('connect', () => {
-            console.log('Connected to Notification Socket');
-        });
+            socketInstance = io('http://localhost:5000', {
+                auth: { token },
+                transports: ['websocket', 'polling']
+            });
 
-        // Listen for live incoming notifications
-        socket.on('notification', (newNotification) => {
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-        });
+            socketInstance.on('connect', () => {
+                console.log('⚡ Connected to Notification Socket');
+            });
 
-        socket.on('connect_error', (err) => {
-            console.error('Socket Connection Error:', err.message);
-        });
+            // Listen for live incoming notifications
+            socketInstance.on('notification', (newNotification) => {
+                console.log('🔔 Live Notification received:', newNotification);
+                setNotifications(prev => [newNotification, ...prev]);
+                setUnreadCount(prev => prev + 1);
+
+                toast.info(`🔔 ${newNotification.message}`, {
+                    position: "top-center",
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                    theme: "dark"
+                });
+            });
+
+            socketInstance.on('connect_error', (err) => {
+                console.error('Socket Connection Error:', err.message);
+            });
+        };
+
+        connectSocket();
+
+        const interval = setInterval(() => {
+            if (!socketInstance) {
+                connectSocket();
+            }
+        }, 1500);
 
         return () => {
-            socket.disconnect();
+            clearInterval(interval);
+            if (socketInstance) {
+                socketInstance.disconnect();
+            }
         };
     }, []);
 
@@ -89,7 +114,7 @@ export default function NotificationBell() {
 
     return (
         <div className="relative">
-            {/* Bell Icon Button with Unread Badge */}
+            
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none"
@@ -107,7 +132,7 @@ export default function NotificationBell() {
                 )}
             </button>
 
-            {/* Notifications Dropdown Panel */}
+          
             {isOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl z-50 overflow-hidden">
                     <div className="p-3 bg-slate-800/90 border-b border-slate-700 flex justify-between items-center">

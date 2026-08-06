@@ -76,8 +76,6 @@ export const getTicketById = async (req, res) => {
 export const updateTicket = async (req, res) => {
     try {
         const { title, description, status, internalPriority } = req.body;
-
-        // Query-Level Ownership Check: Admins match by ID; Editors match by ID AND Owner
         const query = req.user.role === 'admin' 
             ? { _id: req.params.id }
             : { _id: req.params.id, owner: req.user.id || req.user._id };

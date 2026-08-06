@@ -9,6 +9,7 @@ import {
   deleteTicketAttachment,
 } from '../services/ticketServices.js';
 import { fetchMyPermissions } from '../services/authServices.js';
+import { toast } from 'react-toastify';
 
 export default function TicketManagement() {
   const { user } = useContext(ProfileContext);
@@ -115,7 +116,9 @@ export default function TicketManagement() {
           payload.internalPriority = formData.internalPriority;
         }
         const res = await updateTicket(editingTicket._id, payload);
-        setSuccessMsg(res.message || 'Ticket updated successfully');
+        const msg = res.message || 'Ticket updated successfully';
+        setSuccessMsg(msg);
+        toast.success(msg, { theme: "dark", position: "top-center" });
       } else {
         const payload = {
           title: formData.title,
@@ -127,7 +130,9 @@ export default function TicketManagement() {
         }
         const res = await createTicket(payload);
         savedTicketId = res.ticket?._id || res.ticketId;
-        setSuccessMsg(res.message || 'Ticket created successfully');
+        const msg = res.message || 'Ticket created successfully';
+        setSuccessMsg(msg);
+        toast.success(msg, { theme: "dark", position: "top-center" });
       }
 
       // If a file was selected in the modal, upload it to the ticket
@@ -136,13 +141,16 @@ export default function TicketManagement() {
           await uploadTicketAttachment(savedTicketId, modalFile);
         } catch (uploadErr) {
           setError(`Ticket saved, but attachment upload failed: ${uploadErr.message}`);
+          toast.error(`Attachment upload failed: ${uploadErr.message}`, { theme: "dark", position: "top-center" });
         }
       }
 
       handleCloseModal();
       loadTickets();
     } catch (err) {
-      setError(err.message || 'Failed to save ticket');
+      const errMsg = err.message || 'Failed to save ticket';
+      setError(errMsg);
+      toast.error(errMsg, { theme: "dark", position: "top-center" });
     } finally {
       setSubmitting(false);
     }
@@ -154,10 +162,14 @@ export default function TicketManagement() {
     setSuccessMsg('');
     try {
       const res = await deleteTicket(ticketId);
-      setSuccessMsg(res.message || 'Ticket deleted successfully');
+      const msg = res.message || 'Ticket deleted successfully';
+      setSuccessMsg(msg);
+      toast.success(msg, { theme: "dark", position: "top-center" });
       loadTickets();
     } catch (err) {
-      setError(err.message || 'Failed to delete ticket');
+      const errMsg = err.message || 'Failed to delete ticket';
+      setError(errMsg);
+      toast.error(errMsg, { theme: "dark", position: "top-center" });
     }
   };
 
