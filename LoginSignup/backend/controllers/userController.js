@@ -87,13 +87,13 @@ export const updateUserRole = async (req, res) => {
     try {
         const { role } = req.body;
 
-        if (!['user', 'manager', 'admin'].includes(role)) {
-            return res.status(400).json({ success: false, message: 'Invalid role specified' });
+        if (!role || typeof role !== 'string' || !role.trim()) {
+            return res.status(400).json({ success: false, message: 'Please specify a valid role name' });
         }
 
         const user = await User.findByIdAndUpdate(
             req.params.id,
-            { role },
+            { role: role.trim().toLowerCase() },
             { new: true }
         ).select('-password');
 

@@ -4,8 +4,12 @@ const PermissionSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        unique: true
+        default: null
+    },
+    role: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Role',
+        default: null
     },
     canCreateTicket: {
         type: Boolean,

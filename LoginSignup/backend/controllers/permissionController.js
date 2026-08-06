@@ -1,27 +1,33 @@
 import Permission from '../models/Permission.js';
+import Role from '../models/Role.js';
 import User from '../models/User.js';
 
+// Helper function to resolve dynamic permissions for a user via their Role in MongoDB
 export const getOrCreateUserPermission = async (user) => {
-    let permission = await Permission.findOne({ user: user._id || user.id });
-
-    if (!permission) {
-        const isManagerOrAdmin = ['admin', 'manager'].includes(user.role);
-
-        permission = new Permission({
-            user: user._id || user.id,
-            canCreateTicket: isManagerOrAdmin,
-            canReadTicket: true,
-            canUpdateTicket: isManagerOrAdmin,
-            canDeleteTicket: isManagerOrAdmin
-        });
-
-        await permission.save();
+    // 1. Check if user has explicit per-user custom permission override
+    let userPermission = await Permission.findOne({ user: user._id || user.id });
+    if (userPermission) {
+        return userPermission;
     }
 
-    return permission;
+    // 2. Resolve dynamic permissions from the User's Role referenced in DB
+    const userRoleName = (user.role || 'user').toLowerCase();
+    const role = await Role.findOne({ name: userRoleName }).populate('permissions');
+
+    if (role && role.permissions) {
+        return role.permissions;
+    }
+
+    // Fallback defaults
+    return {
+        canCreateTicket: ['admin', 'manager'].includes(userRoleName),
+        canReadTicket: true,
+        canUpdateTicket: ['admin', 'manager'].includes(userRoleName),
+        canDeleteTicket: ['admin', 'manager'].includes(userRoleName)
+    };
 };
 
-// 1. Get logged-in user's own permissions
+// 1. Get logged-in user's own dynamic permissions
 export const getMyPermissions = async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
@@ -33,7 +39,7 @@ export const getMyPermissions = async (req, res) => {
 
         const permission = await getOrCreateUserPermission(user);
 
-        res.json({ success: true, permission });
+        res.json({ success: true, permission, role: user.role });
     } catch (error) {
         console.error('Get my permissions error:', error);
         res.status(500).json({ success: false, message: error.message });

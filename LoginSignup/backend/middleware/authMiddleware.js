@@ -29,7 +29,7 @@ export const authorizeRoles = (...roles) => {
     };
 };
 
-// Dynamic Permission Authorization Middleware
+// Fully Dynamic Permission Authorization Middleware (Driven entirely by MongoDB Role & Permission records)
 export const checkPermission = (action) => {
     return async (req, res, next) => {
         try {
@@ -37,17 +37,13 @@ export const checkPermission = (action) => {
                 return res.status(401).json({ success: false, message: 'Access denied. Authentication required.' });
             }
 
-            // Admin always has full administrative access
-            if (req.user.role === 'admin') {
-                return next();
-            }
-
+            // Dynamically lookup user's permission profile from Role/Permission database document
             const permission = await getOrCreateUserPermission(req.user);
 
             if (!permission || !permission[action]) {
                 return res.status(403).json({
                     success: false,
-                    message: `Access denied. You do not have permission to perform '${action}'.`
+                    message: `Access denied. You do not have dynamic permission to perform '${action}'.`
                 });
             }
 

@@ -213,4 +213,37 @@ export async function updateUserPermissions(userId, permissionData) {
   return response.json();
 }
 
+export async function fetchRoles() {
+  const response = await authenticatedFetch('http://localhost:5000/api/roles');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch roles');
+  }
+  return response.json();
+}
+
+export async function updateRolePermissions(roleName, permissionData) {
+  const response = await authenticatedFetch(`http://localhost:5000/api/roles/${roleName}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify(permissionData)
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update role permissions');
+  }
+  return response.json();
+}
+
+export async function createRole(roleData) {
+  const response = await authenticatedFetch('http://localhost:5000/api/roles', {
+    method: 'POST',
+    body: JSON.stringify(roleData)
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to create role');
+  }
+  return response.json();
+}
+
 export { login as loginUser, signup as signupUser, fetchUsers as fetchAllUsers, assignRoleToUser as assignRole};

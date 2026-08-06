@@ -1,7 +1,8 @@
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchRoleData, fetchUsers, assignRoleToUser, fetchAllPermissions, updateUserPermissions } from '../services/authServices.js';
+import { fetchRoleData, fetchUsers, assignRoleToUser, fetchAllPermissions, updateUserPermissions, fetchRoles, updateRolePermissions, createRole } from '../services/authServices.js';
+import { toast } from 'react-toastify';
 import TicketManagement from '../components/TicketManagement.jsx';
 
 export default function Dashboard() {
@@ -10,6 +11,16 @@ export default function Dashboard() {
     const [roleData, setRoleData] = useState(null);
     const [users, setUsers] = useState([]);
     const [permissionsMap, setPermissionsMap] = useState({});
+    const [roles, setRoles] = useState([]);
+    const [newRoleData, setNewRoleData] = useState({
+        name: '',
+        description: '',
+        canCreateTicket: false,
+        canReadTicket: true,
+        canUpdateTicket: false,
+        canDeleteTicket: false
+    });
+    const [creatingRole, setCreatingRole] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);
     const [error, setError] = useState('');
@@ -68,9 +79,10 @@ export default function Dashboard() {
         const loadAdminUsers = async () => {
             setTableLoading(true);
             try {
-                const [usersData, permData] = await Promise.all([
+                const [usersData, permData, rolesData] = await Promise.all([
                     fetchUsers({ page, limit, sortBy, sortOrder, search: debouncedSearch }),
-                    fetchAllPermissions().catch(() => ({ success: false }))
+                    fetchAllPermissions().catch(() => ({ success: false })),
+                    fetchRoles().catch(() => ({ success: false }))
                 ]);
                 setUsers(usersData.users || []);
                 setTotalPages(usersData.totalPages || 1);
@@ -78,6 +90,9 @@ export default function Dashboard() {
 
                 if (permData && permData.success) {
                     setPermissionsMap(permData.permissions || {});
+                }
+                if (rolesData && rolesData.success) {
+                    setRoles(rolesData.roles || []);
                 }
             } catch (err) {
                 setError(err.message || 'Failed to fetch users');
@@ -88,6 +103,57 @@ export default function Dashboard() {
 
         loadAdminUsers();
     }, [user, page, limit, sortBy, sortOrder, debouncedSearch]);
+
+    const handleRolePermissionToggle = async (roleName, field, currentValue) => {
+        try {
+            const targetRole = roles.find(r => r.name === roleName);
+            const currentPerms = targetRole?.permissions || {};
+            const updatedValue = !currentValue;
+            const updatedPerms = {
+                canCreateTicket: currentPerms.canCreateTicket ?? false,
+                canReadTicket: currentPerms.canReadTicket ?? true,
+                canUpdateTicket: currentPerms.canUpdateTicket ?? false,
+                canDeleteTicket: currentPerms.canDeleteTicket ?? false,
+                [field]: updatedValue
+            };
+
+            const response = await updateRolePermissions(roleName, updatedPerms);
+            if (response.success && response.role) {
+                setRoles(prev => prev.map(r => r.name === roleName ? response.role : r));
+                toast.success(`Role '${roleName}' permissions updated!`, { theme: "dark", position: "top-center" });
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to update role permission');
+        }
+    };
+
+    const handleCreateRole = async (e) => {
+        e.preventDefault();
+        if (!newRoleData.name.trim()) return;
+
+        setCreatingRole(true);
+        setError('');
+        try {
+            const response = await createRole(newRoleData);
+            if (response.success && response.role) {
+                setRoles(prev => [...prev, response.role]);
+                toast.success(`Role '${response.role.name}' created successfully!`, { theme: "dark", position: "top-center" });
+                setNewRoleData({
+                    name: '',
+                    description: '',
+                    canCreateTicket: false,
+                    canReadTicket: true,
+                    canUpdateTicket: false,
+                    canDeleteTicket: false
+                });
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to create role');
+            toast.error(err.message || 'Failed to create role', { theme: "dark", position: "top-center" });
+        } finally {
+            setCreatingRole(false);
+        }
+    };
 
     const handlePermissionToggle = async (userId, field, currentValue) => {
         try {
@@ -201,24 +267,201 @@ export default function Dashboard() {
                                 }`}
                                 onClick={() => setActiveTab('tickets')}
                             >
-                                🎫 Support Tickets
+                                Support Tickets
                             </button>
                             {user.role === 'admin' && (
-                                <button
-                                    className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
-                                        activeTab === 'users'
-                                            ? 'bg-white text-slate-900 shadow-lg font-bold'
-                                            : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
-                                    }`}
-                                    onClick={() => setActiveTab('users')}
-                                >
-                                    👥 User Management
-                                </button>
+                                <>
+                                    <button
+                                        className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                            activeTab === 'users'
+                                                ? 'bg-white text-slate-900 shadow-lg font-bold'
+                                                : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                        }`}
+                                        onClick={() => setActiveTab('users')}
+                                    >
+                                        User Management
+                                    </button>
+                                    <button
+                                        className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                            activeTab === 'roles'
+                                                ? 'bg-white text-slate-900 shadow-lg font-bold'
+                                                : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                        }`}
+                                        onClick={() => setActiveTab('roles')}
+                                    >
+                                        Role Permissions (RBAC)
+                                    </button>
+                                </>
                             )}
                         </div>
 
                         {/* Tickets Tab Content */}
                         {activeTab === 'tickets' && <TicketManagement />}
+
+                        {/* Dynamic Roles & Permissions Matrix Tab Content */}
+                        {activeTab === 'roles' && user.role === 'admin' && (
+                            <div className="bg-white p-6 md:p-8 rounded-xl shadow-xl overflow-x-auto">
+                                <div className="mb-6">
+                                    <h3 className="text-xl font-bold text-slate-800 border-b-2 border-indigo-500 pb-2 mb-2">
+                                        Dynamic Role Permissions (RBAC)
+                                    </h3>
+                                    <p className="text-slate-600 text-sm">
+                                        Create new roles and modify their permissions dynamically in MongoDB with zero hardcoded rules.
+                                    </p>
+                                </div>
+
+                                {/* Create New Role Form Card */}
+                                <div className="bg-slate-50 border border-indigo-200 p-5 rounded-xl mb-6 shadow-sm">
+                                    <h4 className="text-sm font-bold text-slate-800 mb-3">
+                                        Create New Custom Role
+                                    </h4>
+                                    <form onSubmit={handleCreateRole} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Role Name *</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. supervisor, editor, admin"
+                                                value={newRoleData.name}
+                                                onChange={(e) => setNewRoleData({ ...newRoleData, name: e.target.value })}
+                                                required
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Role description..."
+                                                value={newRoleData.description}
+                                                onChange={(e) => setNewRoleData({ ...newRoleData, description: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Ticket Permissions</label>
+                                            <div className="flex items-center gap-2 text-xs font-medium pt-2 text-slate-700">
+                                                <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newRoleData.canCreateTicket}
+                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canCreateTicket: e.target.checked })}
+                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span>Create</span>
+                                                </label>
+                                                <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newRoleData.canReadTicket}
+                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canReadTicket: e.target.checked })}
+                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span>Read</span>
+                                                </label>
+                                                <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newRoleData.canUpdateTicket}
+                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canUpdateTicket: e.target.checked })}
+                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span>Update</span>
+                                                </label>
+                                                <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newRoleData.canDeleteTicket}
+                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canDeleteTicket: e.target.checked })}
+                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span>Delete</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <button
+                                                type="submit"
+                                                disabled={creatingRole}
+                                                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-md text-sm font-semibold transition-all shadow cursor-pointer"
+                                            >
+                                                {creatingRole ? 'Creating...' : '+ Create Role'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <table className="w-full border-collapse text-sm">
+                                    <thead>
+                                        <tr className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+                                            <th className="p-4 text-left font-semibold">Role Name</th>
+                                            <th className="p-4 text-left font-semibold">Description</th>
+                                            <th className="p-4 text-center font-semibold">Role Ticket Permissions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {roles && roles.length > 0 ? (
+                                            roles.map(r => (
+                                                <tr key={r._id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-4 text-slate-800 font-bold uppercase tracking-wide">
+                                                        <span className={getRoleBadgeClass(r.name)}>
+                                                            {r.name}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-slate-600 text-xs">{r.description || 'System Role'}</td>
+                                                    <td className="p-4 text-center">
+                                                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs font-medium text-slate-700">
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={r.permissions?.canCreateTicket ?? false}
+                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canCreateTicket', r.permissions?.canCreateTicket)}
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Create</span>
+                                                            </label>
+
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={r.permissions?.canReadTicket ?? true}
+                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canReadTicket', r.permissions?.canReadTicket)}
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Read</span>
+                                                            </label>
+
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={r.permissions?.canUpdateTicket ?? false}
+                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canUpdateTicket', r.permissions?.canUpdateTicket)}
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Update</span>
+                                                            </label>
+
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={r.permissions?.canDeleteTicket ?? false}
+                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canDeleteTicket', r.permissions?.canDeleteTicket)}
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                                <span>Delete</span>
+                                                            </label>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" className="text-center py-8 text-slate-500">No roles configured</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
 
                         {/* Admin Users Table Tab Content */}
                         {activeTab === 'users' && user.role === 'admin' && (
@@ -279,9 +522,9 @@ export default function Dashboard() {
                                                             onChange={(e) => handleRoleChange(u._id, e.target.value)}
                                                             className="px-3 py-2 border-2 border-indigo-500 rounded-md text-sm font-medium bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all min-w-[140px]"
                                                         >
-                                                            <option value="user">User</option>
-                                                            <option value="manager">Manager</option>
-                                                            <option value="admin">Admin</option>
+                                                            {Array.from(new Set(['user', 'manager', 'admin', ...roles.map(r => r.name.toLowerCase())])).map(rName => (
+                                                                <option key={rName} value={rName}>{rName.toUpperCase()}</option>
+                                                            ))}
                                                         </select>
                                                     </td>
                                                     <td className="p-4 text-center">
