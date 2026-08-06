@@ -285,43 +285,43 @@ export default function Dashboard() {
                                                         </select>
                                                     </td>
                                                     <td className="p-4 text-center">
-                                                        <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canCreateTicket ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs font-medium text-slate-700">
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager')}
                                                                     onChange={() => handlePermissionToggle(u._id, 'canCreateTicket', permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                                 />
                                                                 <span>Create</span>
                                                             </label>
 
-                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canReadTicket ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={permissionsMap[u._id]?.canReadTicket ?? true}
                                                                     onChange={() => handlePermissionToggle(u._id, 'canReadTicket', permissionsMap[u._id]?.canReadTicket ?? true)}
-                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                                 />
                                                                 <span>Read</span>
                                                             </label>
 
-                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canUpdateTicket ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager')}
                                                                     onChange={() => handlePermissionToggle(u._id, 'canUpdateTicket', permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                                 />
                                                                 <span>Update</span>
                                                             </label>
 
-                                                            <label className={`inline-flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${permissionsMap[u._id]?.canDeleteTicket ? 'bg-rose-50 border-rose-300 text-rose-700' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager')}
                                                                     onChange={() => handlePermissionToggle(u._id, 'canDeleteTicket', permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                                 />
                                                                 <span>Delete</span>
                                                             </label>
