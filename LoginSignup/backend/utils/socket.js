@@ -39,7 +39,6 @@ export const initSocket = (httpServer) => {
         // User joins private room keyed by their user ID
         socket.join(userId.toString());
 
-        // Attach Yjs CRDT Document socket handlers
         setupDocumentSocketHandlers(io, socket);
 
         socket.on('disconnect', () => {

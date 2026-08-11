@@ -12,13 +12,20 @@
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
     "@tailwindcss/vite": "^4.3.3",
+    "@tiptap/extension-blockquote": "^3.30.0",
+    "@tiptap/extension-code-block": "^3.30.0",
+    "@tiptap/extension-underline": "^3.30.0",
+    "@tiptap/react": "^3.30.0",
+    "@tiptap/starter-kit": "^3.30.0",
     "jwt-decode": "^4.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
     "react-toastify": "^11.1.0",
+    "react-window": "^2.3.0",
     "socket.io-client": "^4.8.3",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
