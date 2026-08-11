@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Notification from '../models/Notification.js';
+import { setupDocumentSocketHandlers } from './documentSocket.js';
 
 let io;
 
@@ -37,6 +38,9 @@ export const initSocket = (httpServer) => {
 
         // User joins private room keyed by their user ID
         socket.join(userId.toString());
+
+        // Attach Yjs CRDT Document socket handlers
+        setupDocumentSocketHandlers(io, socket);
 
         socket.on('disconnect', () => {
             console.log(`User disconnected from Socket: ${userId}`);

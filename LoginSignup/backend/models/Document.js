@@ -24,21 +24,21 @@ const DocumentSchema = new mongoose.Schema({
     trim: true,
     default: 'Untitled Document'
   },
-  // Stores initial content or HTML/JSON state
   content: {
     type: mongoose.Schema.Types.Mixed,
     default: ''
   },
-  // Document owner
+  yjsState: {
+    type: String,
+    default: null
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
     index: true
   },
-  // Explicit collaborators list with permissions
   collaborators: [CollaboratorSchema],
-  // Public access setting ('none', 'viewer', 'editor')
   publicAccess: {
     type: String,
     enum: ['none', 'viewer', 'editor'],
