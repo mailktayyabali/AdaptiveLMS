@@ -16,6 +16,7 @@ import ticketRoutes from './routes/ticketRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import permissionRoutes from './routes/permissionRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
+import documentRoutes from './routes/documentRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -53,6 +54,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/documents', documentRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
