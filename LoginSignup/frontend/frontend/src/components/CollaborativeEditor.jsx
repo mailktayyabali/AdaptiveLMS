@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import PlateEditor from './PlateEditor.jsx';
 
-// Browser-native Base64 helpers
+
 const uint8ArrayToBase64 = (array) => {
   let binary = '';
   const len = array.byteLength;
@@ -22,7 +22,6 @@ const base64ToUint8Array = (base64) => {
   return bytes;
 };
 
-// Precise incremental diffing on Y.Text to send small, smooth deltas
 const updateYTextIncremental = (yDoc, yText, newText) => {
   const oldText = yText.toString();
   if (oldText === newText) return;

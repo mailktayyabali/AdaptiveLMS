@@ -72,4 +72,27 @@ DocumentSchema.methods.getUserAccessLevel = function (userId) {
   return this.publicAccess !== 'none' ? this.publicAccess : 'none';
 };
 
+// Automatic cascade deletion: remove all DocumentVersion records when document is deleted
+DocumentSchema.post('deleteOne', { document: true, query: false }, async function () {
+  try {
+    if (this._id) {
+      await mongoose.model('DocumentVersion').deleteMany({ documentId: this._id });
+      console.log(`[Cascade Delete] Automatically deleted version history for document: ${this._id}`);
+    }
+  } catch (err) {
+    console.error('[Cascade Delete Error]', err);
+  }
+});
+
+DocumentSchema.post('findOneAndDelete', async function (doc) {
+  try {
+    if (doc && doc._id) {
+      await mongoose.model('DocumentVersion').deleteMany({ documentId: doc._id });
+      console.log(`[Cascade Delete] Automatically deleted version history for document: ${doc._id}`);
+    }
+  } catch (err) {
+    console.error('[Cascade Delete Error]', err);
+  }
+});
+
 export default mongoose.model('Document', DocumentSchema);
