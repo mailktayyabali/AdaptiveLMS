@@ -54,11 +54,17 @@ DocumentSchema.methods.getUserAccessLevel = function (userId) {
   }
 
   const userIdStr = userId.toString();
-  if (this.owner.toString() === userIdStr) {
+  const ownerIdStr = (this.owner?._id || this.owner)?.toString();
+
+  if (ownerIdStr === userIdStr) {
     return 'owner';
   }
 
-  const collab = this.collaborators.find(c => c.user.toString() === userIdStr);
+  const collab = this.collaborators?.find(c => {
+    const collabUserIdStr = (c.user?._id || c.user)?.toString();
+    return collabUserIdStr === userIdStr;
+  });
+
   if (collab) {
     return collab.role; 
   }

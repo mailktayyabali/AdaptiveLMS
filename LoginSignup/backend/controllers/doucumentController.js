@@ -106,7 +106,8 @@ export const deleteDocument = async (req, res) => {
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document not found' });
     }
-    if (document.owner.toString() !== userId.toString()) {
+    const ownerIdStr = (document.owner?._id || document.owner)?.toString();
+    if (ownerIdStr !== userId.toString()) {
       return res.status(403).json({ success: false, message: 'Only the document owner can delete this document' });
     }
     await document.deleteOne();
@@ -126,7 +127,8 @@ export const shareDocument = async (req, res) => {
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document not found' });
     }
-    if (document.owner.toString() !== userId.toString()) {
+    const ownerIdStr = (document.owner?._id || document.owner)?.toString();
+    if (ownerIdStr !== userId.toString()) {
       return res.status(403).json({ success: false, message: 'Only the document owner can manage permissions' });
     }
     
