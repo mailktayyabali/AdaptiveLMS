@@ -1,30 +1,7 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
 
-// Ensure storage directories exist
-const originalsDir = path.join(process.cwd(), 'uploads', 'originals');
-const thumbnailsDir = path.join(process.cwd(), 'uploads', 'thumbnails');
-
-if (!fs.existsSync(originalsDir)) {
-    fs.mkdirSync(originalsDir, { recursive: true });
-}
-if (!fs.existsSync(thumbnailsDir)) {
-    fs.mkdirSync(thumbnailsDir, { recursive: true });
-}
-
-// Multer Storage Configuration - Uses UUID to prevent collision & path traversal
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, originalsDir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        const safeFilename = `${crypto.randomUUID()}${ext}`;
-        cb(null, safeFilename);
-    }
-});
+// Memory Storage Configuration for Direct S3 Streaming
+const storage = multer.memoryStorage();
 
 // File Type Filter: Allowed MIME Types
 const allowedMimeTypes = [
@@ -43,12 +20,12 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-// Multer Instance with 5MB Limit
+// Multer Instance with 10MB Limit
 const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5 MB Limit
+        fileSize: 10 * 1024 * 1024 // 10 MB Limit
     }
 });
 
@@ -62,7 +39,7 @@ export const handleSingleUpload = (fieldName) => {
                 if (err.code === 'LIMIT_FILE_SIZE') {
                     return res.status(400).json({
                         success: false,
-                        message: 'File size limit exceeded. Maximum allowed size is 5MB.'
+                        message: 'File size limit exceeded. Maximum allowed size is 10MB.'
                     });
                 }
                 return res.status(400).json({

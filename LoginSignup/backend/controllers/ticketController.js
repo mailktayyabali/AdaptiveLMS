@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs';
 import { createAndSendNotification } from '../utils/socket.js';
+import { uploadToS3, deleteFromS3 } from '../config/s3.js';
 
 // Helper function to strip field-level restricted data for non-admins
 const sanitizeTicket = (ticket, userRole) => {
@@ -130,23 +131,17 @@ export const updateTicket = async (req, res) => {
     }
 };
 
-// Helper to remove attachment files from disk safely
+// Helper to remove attachment files from S3 safely
 const removeAttachmentFilesFromDisk = async (attachment) => {
     try {
         if (attachment.path) {
-            const originalFullPath = path.join(process.cwd(), attachment.path.replace(/^\//, ''));
-            if (fs.existsSync(originalFullPath)) {
-                await fs.promises.unlink(originalFullPath).catch(() => {});
-            }
+            await deleteFromS3(attachment.path).catch(() => {});
         }
         if (attachment.thumbnailPath) {
-            const thumbFullPath = path.join(process.cwd(), attachment.thumbnailPath.replace(/^\//, ''));
-            if (fs.existsSync(thumbFullPath)) {
-                await fs.promises.unlink(thumbFullPath).catch(() => {});
-            }
+            await deleteFromS3(attachment.thumbnailPath).catch(() => {});
         }
     } catch (err) {
-        console.error('Error removing attachment file from disk:', err);
+        console.error('Error removing attachment file from S3:', err);
     }
 };
 
@@ -167,7 +162,7 @@ export const deleteTicket = async (req, res) => {
             });
         }
 
-        // Cascade Cleanup: Delete all associated attachment files from disk
+        // Cascade Cleanup: Delete all associated attachment files from S3
         if (ticket.attachments && ticket.attachments.length > 0) {
             for (const att of ticket.attachments) {
                 await removeAttachmentFilesFromDisk(att);
@@ -194,7 +189,7 @@ export const deleteTicket = async (req, res) => {
     }
 };
 
-// 6. UPLOAD Ticket Attachment (Enforces Ownership & Sharp Thumbnail Processing)
+// 6. UPLOAD Ticket Attachment (Uploads directly to S3 under 'Tayyab' folder)
 export const uploadAttachment = async (req, res) => {
     try {
         if (!req.file) {
@@ -209,31 +204,36 @@ export const uploadAttachment = async (req, res) => {
         const ticket = await Ticket.findOne(query);
 
         if (!ticket) {
-            // Delete uploaded file if user is unauthorized
-            if (fs.existsSync(req.file.path)) {
-                await fs.promises.unlink(req.file.path).catch(() => {});
-            }
             return res.status(403).json({
                 success: false,
                 message: 'Access denied. You can only attach files to your own tickets.'
             });
         }
 
+        // Upload main file directly to S3 under 'Tayyab' folder
+        const fileUrl = await uploadToS3(
+            req.file.buffer,
+            req.file.originalname,
+            req.file.mimetype,
+            "Tayyab"
+        );
+
         let thumbnailPath = null;
         const isImage = req.file.mimetype.startsWith('image/');
 
-        // Sharp Thumbnail Processing for Images
+        // Sharp Thumbnail Processing for Images directly to S3
         if (isImage) {
             try {
-                const thumbFilename = `thumb-${req.file.filename}`;
-                const thumbDir = path.join(process.cwd(), 'uploads', 'thumbnails');
-                const thumbFullPath = path.join(thumbDir, thumbFilename);
-
-                await sharp(req.file.path)
+                const thumbBuffer = await sharp(req.file.buffer)
                     .resize(200, 200, { fit: 'cover' })
-                    .toFile(thumbFullPath);
+                    .toBuffer();
 
-                thumbnailPath = `/uploads/thumbnails/${thumbFilename}`;
+                thumbnailPath = await uploadToS3(
+                    thumbBuffer,
+                    `thumb-${req.file.originalname}`,
+                    'image/jpeg',
+                    "Tayyab"
+                );
             } catch (sharpError) {
                 console.error('Sharp thumbnail generation error:', sharpError);
                 thumbnailPath = null;
@@ -241,12 +241,12 @@ export const uploadAttachment = async (req, res) => {
         }
 
         const newAttachment = {
-            filename: req.file.filename,
+            filename: req.file.originalname,
             originalName: req.file.originalname,
             mimeType: req.file.mimetype,
             size: req.file.size,
-            path: `/uploads/originals/${req.file.filename}`,
-            thumbnailPath: thumbnailPath,
+            path: fileUrl,
+            thumbnailPath: thumbnailPath || fileUrl,
             uploadedAt: new Date()
         };
 
@@ -267,14 +267,11 @@ export const uploadAttachment = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Attachment uploaded successfully!',
+            message: 'Attachment uploaded successfully to S3!',
             attachment: newAttachment,
             ticket: sanitizeTicket(ticket, req.user.role)
         });
     } catch (error) {
-        if (req.file && fs.existsSync(req.file.path)) {
-            await fs.promises.unlink(req.file.path).catch(() => {});
-        }
         res.status(500).json({ success: false, message: error.message });
     }
 };

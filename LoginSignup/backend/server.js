@@ -17,6 +17,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import permissionRoutes from './routes/permissionRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -55,6 +56,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api', uploadRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
@@ -64,5 +66,5 @@ app.get('/', (req, res) => {
 // Start Server using httpServer
 const port = process.env.PORT || 5000;
 httpServer.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on port ${port} [S3 Bucket: ${process.env.AWS_S3_BUCKET_NAME}]`);
 });
