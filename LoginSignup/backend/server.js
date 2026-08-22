@@ -18,6 +18,7 @@ import permissionRoutes from './routes/permissionRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import videoRoutes from './routes/videoRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -57,6 +58,7 @@ app.use('/api/permissions', permissionRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api', uploadRoutes);
+app.use('/api', videoRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {

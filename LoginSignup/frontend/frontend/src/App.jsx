@@ -4,6 +4,7 @@ import Profile from "./pages/Dashboard.jsx";
 import GithubCallback from "./pages/GithubCallback.jsx";
 import DocumentList from "./pages/DocumentList.jsx";
 import DocumentEditorPage from "./pages/DocumentEditorPage.jsx";
+import CourseListPage from "./pages/CourseListPage.jsx";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import { ProfileProvider } from "./context/ProfileContext.jsx";
@@ -22,6 +23,7 @@ function App() {
           <Route path='/auth/github/callback' element={<GithubCallback />} />
           <Route path="/documents" element={<DocumentList />} />
           <Route path="/documents/:id" element={<DocumentEditorPage />} />
+          <Route path="/courses" element={<CourseListPage />} />
         </Routes>
       </ProfileProvider>
       <ToastContainer

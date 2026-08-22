@@ -38,6 +38,16 @@ export default function Header() {
                         <span></span> Documents
                     </Link>
                     <Link
+                        to="/courses"
+                        className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                            location.pathname.startsWith('/courses')
+                                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-semibold'
+                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                        }`}
+                    >
+                        Courses
+                    </Link>
+                    <Link
                         to="/profile"
                         className={`px-3 py-1.5 rounded-lg transition ${
                             location.pathname === '/profile'
