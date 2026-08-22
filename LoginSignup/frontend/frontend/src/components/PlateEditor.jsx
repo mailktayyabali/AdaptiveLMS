@@ -10,6 +10,7 @@ import { TextAlignPlugin } from '@udecode/plate-alignment/react';
 import { HorizontalRulePlugin } from '@udecode/plate-horizontal-rule/react';
 import { HighlightPlugin } from '@udecode/plate-highlight/react';
 import { FontColorPlugin, FontBackgroundColorPlugin } from '@udecode/plate-font/react';
+import { ImagePlugin, MediaEmbedPlugin } from '@udecode/plate-media/react';
 import PlateToolbar from './PlateToolbar.jsx';
 
 // Convert initial content (HTML or plain text string) into Slate JSON nodes
@@ -38,6 +39,7 @@ const parseInitialValue = (content) => {
         else if (tag === 'ol') type = 'ol';
         else if (tag === 'li') type = 'li';
         else if (tag === 'hr') type = 'hr';
+        else if (tag === 'img') type = 'image';
 
         const textContent = element.textContent || '';
         if (['p', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'code_block', 'li'].includes(type)) {
@@ -45,6 +47,17 @@ const parseInitialValue = (content) => {
             type,
             children: [{ text: textContent }]
           });
+        } else if (type === 'image') {
+          const src = element.getAttribute('src') || '';
+          const alt = element.getAttribute('alt') || '';
+          if (src) {
+            nodes.push({
+              type: 'image',
+              url: src,
+              caption: alt,
+              children: [{ text: '' }]
+            });
+          }
         } else {
           Array.from(element.children).forEach(walk);
         }
@@ -111,6 +124,12 @@ const serializeToHtml = (nodes) => {
       if (type === 'ol') return `<ol${alignStyle} class="list-decimal list-inside space-y-1 my-3 text-slate-200"><li>${text}</li></ol>`;
       if (type === 'action_item') return `<div${alignStyle} class="flex items-center gap-2 my-1.5"><input type="checkbox" disabled class="rounded border-slate-700 bg-slate-900" /><span>${text}</span></div>`;
       if (type === 'hr') return `<hr class="my-6 border-slate-800" />`;
+      if (type === 'image' || type === 'img') {
+        const url = n.url || n.src || '';
+        const caption = n.caption || n.alt || '';
+        if (!url) return '';
+        return `<figure class="my-4 text-center"><img src="${url}" alt="${caption}" class="max-w-full h-auto rounded-xl border border-slate-800 shadow-lg mx-auto" />${caption ? `<figcaption class="text-center text-xs text-slate-400 mt-2 italic">${caption}</figcaption>` : ''}</figure>`;
+      }
 
       return `<p${alignStyle} class="mb-3 text-slate-200 leading-relaxed">${text}</p>`;
     })
@@ -122,6 +141,9 @@ const serializeToText = (nodes) => {
   if (!Array.isArray(nodes)) return '';
   return nodes
     .map((n) => {
+      if (n.type === 'image' || n.type === 'img') {
+        return `[Image: ${n.caption || n.url || 'image'}]`;
+      }
       if (n.children) {
         return n.children.map((c) => c.text || '').join('');
       }
@@ -154,7 +176,9 @@ const PlateEditor = ({ initialContent, externalContent, readOnly, onContentChang
       HorizontalRulePlugin,
       HighlightPlugin,
       FontColorPlugin,
-      FontBackgroundColorPlugin
+      FontBackgroundColorPlugin,
+      ImagePlugin,
+      MediaEmbedPlugin
     ],
     []
   );
@@ -224,6 +248,29 @@ const PlateEditor = ({ initialContent, externalContent, readOnly, onContentChang
         return (
           <div {...attributes} contentEditable={false} className="my-6">
             <hr className="border-t border-slate-800" />
+            {children}
+          </div>
+        );
+      case 'image':
+      case 'img':
+        return (
+          <div {...attributes} className="my-4 flex flex-col items-center select-none">
+            <div className="relative group max-w-full rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950/60 p-1.5">
+              <img
+                src={element.url || element.src}
+                alt={element.caption || 'Embedded Image'}
+                className="max-h-[500px] w-auto max-w-full rounded-lg object-contain block mx-auto transition-all"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://via.placeholder.com/600x300?text=Image+Load+Error';
+                }}
+              />
+              {element.caption && (
+                <p className="text-center text-xs text-slate-400 mt-2 italic px-2 py-0.5 font-medium">
+                  {element.caption}
+                </p>
+              )}
+            </div>
             {children}
           </div>
         );

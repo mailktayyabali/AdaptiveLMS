@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authenticatedFetch } from '../services/authServices.js';
 import {
   Bold,
   Italic,
@@ -24,11 +25,23 @@ import {
   Undo2,
   Redo2,
   Lock,
-  ChevronDown
+  ChevronDown,
+  Image as ImageIcon,
+  Upload,
+  Link as LinkIcon,
+  X,
+  Loader2
 } from 'lucide-react';
 
 const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
   const [isBlockMenuOpen, setIsBlockMenuOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imageTab, setImageTab] = useState('upload'); // 'upload' | 'url'
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [imageCaptionInput, setImageCaptionInput] = useState('');
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState('');
 
   if (!editor) return null;
 
@@ -83,6 +96,74 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
     } catch (err) {
       console.error('[PlateToolbar] Error inserting HR:', err);
     }
+  };
+
+  // Helper to insert image (URL or S3 file upload)
+  const handleInsertImage = async (e) => {
+    e.preventDefault();
+    if (readOnly || !editor.tf) return;
+    setImageError('');
+
+    if (imageTab === 'url') {
+      if (!imageUrlInput.trim()) {
+        setImageError('Please enter a valid image URL');
+        return;
+      }
+      try {
+        editor.tf.insertNodes({
+          type: 'image',
+          url: imageUrlInput.trim(),
+          caption: imageCaptionInput.trim(),
+          children: [{ text: '' }]
+        });
+        resetImageModal();
+      } catch (err) {
+        console.error('[PlateToolbar] Error inserting image by URL:', err);
+        setImageError('Failed to insert image');
+      }
+    } else if (imageTab === 'upload') {
+      if (!selectedImageFile) {
+        setImageError('Please select an image file to upload');
+        return;
+      }
+      setIsUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append('image', selectedImageFile);
+
+        const res = await authenticatedFetch('http://localhost:5000/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok && data.url) {
+          editor.tf.insertNodes({
+            type: 'image',
+            url: data.url,
+            caption: imageCaptionInput.trim(),
+            children: [{ text: '' }]
+          });
+          resetImageModal();
+        } else {
+          setImageError(data.message || 'Failed to upload image to S3');
+        }
+      } catch (err) {
+        console.error('[PlateToolbar] Error uploading image file:', err);
+        setImageError(err.message || 'Server error during upload');
+      } finally {
+        setIsUploadingImage(false);
+      }
+    }
+  };
+
+  const resetImageModal = () => {
+    setIsImageModalOpen(false);
+    setImageUrlInput('');
+    setImageCaptionInput('');
+    setSelectedImageFile(null);
+    setImageError('');
+    setIsUploadingImage(false);
   };
 
   // Undo / Redo
@@ -371,6 +452,15 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
           <Minus className="w-4 h-4" />
         </button>
 
+        <button
+          onClick={() => !readOnly && setIsImageModalOpen(true)}
+          disabled={readOnly}
+          className={btnClass(false, readOnly)}
+          title="Insert Image"
+        >
+          <ImageIcon className="w-4 h-4 text-indigo-400" />
+        </button>
+
         <div className="w-px h-5 bg-slate-800 mx-0.5" />
 
         {/* Undo / Redo */}
@@ -407,6 +497,126 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
           </span>
         )}
       </div>
+
+      {/* Image Insertion Modal */}
+      {isImageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-950/60 border-b border-slate-800/80">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-indigo-400" />
+                <h3 className="font-semibold text-sm">Insert Image</h3>
+              </div>
+              <button
+                onClick={resetImageModal}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800/60 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleInsertImage} className="p-5 space-y-4">
+              {/* Tab Selector */}
+              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => { setImageTab('upload'); setImageError(''); }}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    imageTab === 'upload'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setImageTab('url'); setImageError(''); }}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    imageTab === 'url'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <LinkIcon className="w-3.5 h-3.5" /> Image URL
+                </button>
+              </div>
+
+              {/* Tab Contents */}
+              {imageTab === 'upload' ? (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-300">Choose Image File</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSelectedImageFile(e.target.files[0]);
+                        setImageError('');
+                      }
+                    }}
+                    className="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-300 hover:file:bg-indigo-600/30 bg-slate-950 border border-slate-800 rounded-xl p-1 cursor-pointer"
+                  />
+                  {selectedImageFile && (
+                    <p className="text-[11px] text-indigo-400 font-medium">Selected: {selectedImageFile.name}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-slate-300">Image Web URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/image.png"
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+              )}
+
+              {/* Caption Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-300">Caption (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Image description or caption..."
+                  value={imageCaptionInput}
+                  onChange={(e) => setImageCaptionInput(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              {/* Error Message */}
+              {imageError && (
+                <div className="p-2.5 bg-red-950/70 border border-red-800/80 rounded-xl text-red-300 text-xs font-medium">
+                  {imageError}
+                </div>
+              )}
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={resetImageModal}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploadingImage}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingImage && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {isUploadingImage ? 'Uploading...' : 'Insert Image'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

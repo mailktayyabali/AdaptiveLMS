@@ -52,23 +52,37 @@ export async function refreshAccessToken() {
 }
 
 export async function authenticatedFetch(url, options = {}) {
-  let token = localStorage.getItem("token");
+  let token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const defaultHeaders = isFormData ? {} : { "Content-Type": "application/json" };
 
   const headers = {
-    "Content-Type": "application/json",
+    ...defaultHeaders,
     ...options.headers,
     ...(token ? { "Authorization": `Bearer ${token}` } : {})
   };
+
+  if (isFormData && headers["Content-Type"]) {
+    delete headers["Content-Type"];
+  }
 
   let response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
     try {
       const newToken = await refreshAccessToken();
-      headers["Authorization"] = `Bearer ${newToken}`;
-      response = await fetch(url, { ...options, headers });
+      const retryHeaders = {
+        ...headers,
+        "Authorization": `Bearer ${newToken}`
+      };
+      if (isFormData && retryHeaders["Content-Type"]) {
+        delete retryHeaders["Content-Type"];
+      }
+      response = await fetch(url, { ...options, headers: retryHeaders });
     } catch (refreshErr) {
       localStorage.removeItem("token");
+      localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       window.location.href = "/";
       throw new Error("Session expired. Please log in again.");

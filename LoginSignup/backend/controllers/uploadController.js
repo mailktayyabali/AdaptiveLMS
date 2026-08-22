@@ -13,7 +13,7 @@ export const uploadFile = async (req, res) => {
       req.file.originalname,
       req.file.mimetype,
       folder
-    );
+    ); 
 
     return res.status(200).json({
       success: true,
