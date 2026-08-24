@@ -41,14 +41,14 @@ export async function createCourse(courseData) {
   return res.json();
 }
 
-export async function assignInstructorToCourse(courseId, instructorId) {
+export async function assignInstructorsToCourse(courseId, instructorIds) {
   const res = await authenticatedFetch(`${API_BASE}/courses/${courseId}/assign-instructor`, {
     method: 'PUT',
-    body: JSON.stringify({ instructorId })
+    body: JSON.stringify({ instructorIds })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Failed to assign instructor');
+    throw new Error(err.message || 'Failed to assign instructors');
   }
   return res.json();
 }
@@ -61,6 +61,29 @@ export async function addLessonToCourse(courseId, lessonData) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || 'Failed to add lesson to course');
+  }
+  return res.json();
+}
+
+export async function editLessonInCourse(courseId, moduleIndex, lessonIndex, lessonData) {
+  const res = await authenticatedFetch(`${API_BASE}/courses/${courseId}/modules/${moduleIndex}/lessons/${lessonIndex}`, {
+    method: 'PUT',
+    body: JSON.stringify(lessonData)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to edit lesson');
+  }
+  return res.json();
+}
+
+export async function deleteLessonFromCourse(courseId, moduleIndex, lessonIndex) {
+  const res = await authenticatedFetch(`${API_BASE}/courses/${courseId}/modules/${moduleIndex}/lessons/${lessonIndex}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to delete lesson');
   }
   return res.json();
 }

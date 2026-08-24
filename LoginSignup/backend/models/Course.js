@@ -68,9 +68,12 @@ const CourseSchema = new mongoose.Schema({
   },
   instructorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
+  instructors: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   category: {
     type: String,
     default: 'General',

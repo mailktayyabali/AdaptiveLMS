@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { saveVideoProgress, fetchStudentProgress } from '../services/videoService.js';
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { saveVideoProgress, fetchStudentProgress, editLessonInCourse, deleteLessonFromCourse } from '../services/videoService.js';
+import { ProfileContext } from '../context/ProfileContext.jsx';
+import { CheckCircle, Loader2, Edit2, Trash2, X, Check } from 'lucide-react';
 import { authenticatedFetch } from '../services/authServices.js';
+import { toast } from 'react-toastify';
 
-export default function CoursePlayer({ course, activeModuleIndex = 0, activeLessonIndex = 0, onLessonSelect }) {
+export default function CoursePlayer({ course: initialCourse, activeModuleIndex = 0, activeLessonIndex = 0, onLessonSelect, onCourseUpdate }) {
+  const { user } = useContext(ProfileContext);
   const videoRef = useRef(null);
 
+  const [courseData, setCourseData] = useState(initialCourse);
   const [currentModIndex, setCurrentModIndex] = useState(activeModuleIndex);
   const [currentLessIndex, setCurrentLessIndex] = useState(activeLessonIndex);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -16,9 +20,22 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
     overallCourseProgress: 0
   });
 
-  const currentModule = course?.modules?.[currentModIndex];
+  // Edit Lesson Modal State
+  const [editingLessonInfo, setEditingLessonInfo] = useState(null); // { mIdx, lIdx, title, topicTag, difficulty }
+
+  useEffect(() => {
+    setCourseData(initialCourse);
+  }, [initialCourse]);
+
+  const currentModule = courseData?.modules?.[currentModIndex];
   const currentLesson = currentModule?.lessons?.[currentLessIndex];
   const currentVideo = currentLesson?.videoId;
+
+  // Authorization check for editing/deleting lessons
+  const isOwner = courseData?.instructorId?._id === user?.id || courseData?.instructorId === user?.id;
+  const isAssignedInstructor = courseData?.instructors?.some(ins => (ins._id || ins) === user?.id);
+  const isAdmin = user?.role === 'admin';
+  const canManageLessons = isAdmin || isOwner || isAssignedInstructor;
 
   // Fetch presigned stream URL once per lesson selection
   useEffect(() => {
@@ -45,14 +62,14 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
   const streamUrl = directStreamUrl || (currentVideo?._id ? `http://localhost:5000/api/videos/${currentVideo._id}/stream` : currentVideo?.s3Url || '');
 
   useEffect(() => {
-    if (course?._id) {
+    if (courseData?._id) {
       loadProgress();
     }
-  }, [course?._id]);
+  }, [courseData?._id]);
 
   const loadProgress = async () => {
     try {
-      const data = await fetchStudentProgress(course._id);
+      const data = await fetchStudentProgress(courseData._id);
       if (data?.progress) {
         setProgress({
           completedLessons: data.progress.completedLessons || [],
@@ -65,7 +82,6 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
     }
   };
 
-  // Set initial video timestamp once metadata is loaded
   const initialTimeSetRef = useRef(false);
   const handleLoadedMetadata = () => {
     setIsBuffering(false);
@@ -75,7 +91,6 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
     }
   };
 
-  // Throttled position saving down to the second (without re-mounting video element)
   const lastSaveTimeRef = useRef(0);
   const handleTimeUpdate = () => {
     if (isBuffering) setIsBuffering(false);
@@ -89,16 +104,15 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
   };
 
   const persistProgress = async (currentTimeSec, isCompleted = false) => {
-    if (!course?._id) return;
+    if (!courseData?._id) return;
     try {
       const res = await saveVideoProgress({
-        courseId: course._id,
+        courseId: courseData._id,
         lastWatchedVideoId: currentVideo?._id || null,
         lastWatchedTimeSec: currentTimeSec,
         lessonId: isCompleted ? currentLesson?._id : null
       });
 
-      // Update state only when completing a lesson to prevent DOM re-renders during playback
       if (res?.progress && isCompleted) {
         setProgress(prev => ({
           ...prev,
@@ -111,13 +125,12 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
     }
   };
 
-  // Save exact position on page exit / refresh
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (videoRef.current && course?._id) {
+      if (videoRef.current && courseData?._id) {
         const currentTime = Math.floor(videoRef.current.currentTime);
         const data = JSON.stringify({
-          courseId: course._id,
+          courseId: courseData._id,
           lastWatchedVideoId: currentVideo?._id || null,
           lastWatchedTimeSec: currentTime,
           lessonId: null
@@ -131,7 +144,7 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [course?._id, currentVideo?._id]);
+  }, [courseData?._id, currentVideo?._id]);
 
   const handleVideoEnded = () => {
     setIsBuffering(false);
@@ -154,12 +167,72 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
     }
   };
 
+  const handleStartEditLesson = (e, mIdx, lIdx, lesson) => {
+    e.stopPropagation();
+    setEditingLessonInfo({
+      mIdx,
+      lIdx,
+      title: lesson.title,
+      topicTag: lesson.topicTag || 'general',
+      difficulty: lesson.difficulty || 'medium'
+    });
+  };
+
+  const handleSaveEditedLesson = async (e) => {
+    e.preventDefault();
+    if (!editingLessonInfo) return;
+
+    try {
+      const res = await editLessonInCourse(
+        courseData._id,
+        editingLessonInfo.mIdx,
+        editingLessonInfo.lIdx,
+        {
+          title: editingLessonInfo.title,
+          topicTag: editingLessonInfo.topicTag,
+          difficulty: editingLessonInfo.difficulty
+        }
+      );
+
+      if (res.course) {
+        toast.success('Lesson updated successfully!', { theme: 'dark' });
+        setCourseData(res.course);
+        if (onCourseUpdate) onCourseUpdate(res.course);
+        setEditingLessonInfo(null);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to update lesson');
+    }
+  };
+
+  const handleDeleteLesson = async (e, mIdx, lIdx, lessonTitle) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Are you sure you want to delete "${lessonTitle}"?`);
+    if (!confirmed) return;
+
+    try {
+      const res = await deleteLessonFromCourse(courseData._id, mIdx, lIdx);
+      if (res.course) {
+        toast.success('Lesson deleted successfully!', { theme: 'dark' });
+        setCourseData(res.course);
+        if (onCourseUpdate) onCourseUpdate(res.course);
+
+        // Adjust active lesson selection if needed
+        if (mIdx === currentModIndex && lIdx === currentLessIndex) {
+          setCurrentLessIndex(Math.max(0, lIdx - 1));
+        }
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete lesson');
+    }
+  };
+
   return (
     <div className="bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-800 overflow-hidden">
-      {/* Course Overall Progress Bar */}
+      {/* Course Header */}
       <div className="bg-slate-950 p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-100">{course?.title || 'Course Player'}</h2>
+          <h2 className="text-lg font-bold text-slate-100">{courseData?.title || 'Course Player'}</h2>
           <p className="text-xs text-slate-400">
             Module: <span className="text-indigo-400 font-semibold">{currentModule?.title || 'Overview'}</span> | Lesson: <span className="text-indigo-300">{currentLesson?.title || 'Introduction'}</span>
           </p>
@@ -209,7 +282,6 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
                 onEnded={handleVideoEnded}
               />
 
-              {/* Non-blocking Buffering Spinner Indicator in Top Right Corner */}
               {isBuffering && (
                 <div className="absolute top-4 right-4 bg-black/70 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium backdrop-blur-sm pointer-events-none z-10">
                   <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
@@ -225,13 +297,79 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
         </div>
 
         {/* Course Modules & Lessons Navigation Sidebar */}
-        <div className="bg-slate-950 border-l border-slate-800 p-4 max-h-[500px] overflow-y-auto">
+        <div className="bg-slate-950 border-l border-slate-800 p-4 max-h-[500px] overflow-y-auto relative">
           <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
             Course Content
           </h3>
 
+          {/* Edit Lesson Modal */}
+          {editingLessonInfo && (
+            <div className="bg-slate-900 border border-indigo-500/50 p-3 rounded-lg mb-4 space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
+                <span>Edit Lesson Details</span>
+                <button onClick={() => setEditingLessonInfo(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditedLesson} className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-0.5">Lesson Title</label>
+                  <input
+                    type="text"
+                    value={editingLessonInfo.title}
+                    onChange={(e) => setEditingLessonInfo({ ...editingLessonInfo, title: e.target.value })}
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-0.5">Topic Tag</label>
+                    <input
+                      type="text"
+                      value={editingLessonInfo.topicTag}
+                      onChange={(e) => setEditingLessonInfo({ ...editingLessonInfo, topicTag: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-0.5">Difficulty</label>
+                    <select
+                      value={editingLessonInfo.difficulty}
+                      onChange={(e) => setEditingLessonInfo({ ...editingLessonInfo, difficulty: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="easier">Easier</option>
+                      <option value="medium">Medium</option>
+                      <option value="harder">Harder</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingLessonInfo(null)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-semibold cursor-pointer flex items-center gap-1"
+                  >
+                    <Check className="w-3 h-3" />
+                    <span>Save</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           <div className="space-y-4">
-            {course?.modules?.map((module, mIdx) => (
+            {courseData?.modules?.map((module, mIdx) => (
               <div key={module._id || mIdx} className="bg-slate-900 rounded-lg p-3 border border-slate-800">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase mb-2">
                   Module {mIdx + 1}: {module.title}
@@ -242,7 +380,7 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
                     const isCompleted = progress.completedLessons.includes(lesson._id);
 
                     return (
-                      <button
+                      <div
                         key={lesson._id || lIdx}
                         onClick={() => handleSelectLesson(mIdx, lIdx)}
                         className={`w-full text-left text-xs p-2.5 rounded-md flex items-center justify-between transition-all cursor-pointer ${
@@ -259,10 +397,32 @@ export default function CoursePlayer({ course, activeModuleIndex = 0, activeLess
                           )}
                           <span className="truncate">{lesson.title}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 ml-2 uppercase shrink-0">
-                          {lesson.type}
-                        </span>
-                      </button>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Edit & Delete Lesson Actions for Course Owner / Instructors / Admin */}
+                          {canManageLessons && (
+                            <div className="flex items-center gap-1 opacity-80 hover:opacity-100">
+                              <button
+                                title="Edit Lesson"
+                                onClick={(e) => handleStartEditLesson(e, mIdx, lIdx, lesson)}
+                                className="p-1 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 rounded transition cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                title="Delete Lesson"
+                                onClick={(e) => handleDeleteLesson(e, mIdx, lIdx, lesson.title)}
+                                className="p-1 hover:bg-slate-700 text-slate-300 hover:text-red-400 rounded transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          <span className="text-[10px] text-slate-400 uppercase">
+                            {lesson.type}
+                          </span>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

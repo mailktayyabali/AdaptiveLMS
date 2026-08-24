@@ -333,20 +333,30 @@ export const getStudentProgress = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
-    const { title, description, category, instructorId, modules } = req.body;
+    const { title, description, category, instructorId, instructorIds, modules } = req.body;
 
-    const assignedInstructor = instructorId || req.user.id;
+    let instructorsList = [];
+    if (Array.isArray(instructorIds) && instructorIds.length > 0) {
+      instructorsList = instructorIds;
+    } else if (instructorId) {
+      instructorsList = [instructorId];
+    } else {
+      instructorsList = [req.user.id];
+    }
 
     const course = new Course({
       title,
       description,
       category: category || 'General',
-      instructorId: assignedInstructor,
+      instructorId: instructorsList[0],
+      instructors: instructorsList,
       modules: modules || []
     });
 
     await course.save();
-    const populatedCourse = await Course.findById(course._id).populate('instructorId', 'name email username role');
+    const populatedCourse = await Course.findById(course._id)
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role');
 
     return res.status(201).json({
       success: true,
@@ -362,17 +372,29 @@ export const createCourse = async (req, res) => {
 export const assignInstructor = async (req, res) => {
   try {
     const { id } = req.params;
-    const { instructorId } = req.body;
+    const { instructorId, instructorIds } = req.body;
 
-    if (!instructorId) {
-      return res.status(400).json({ success: false, message: 'Instructor ID is required' });
+    let instructorsList = [];
+    if (Array.isArray(instructorIds) && instructorIds.length > 0) {
+      instructorsList = instructorIds;
+    } else if (instructorId) {
+      instructorsList = [instructorId];
+    }
+
+    if (instructorsList.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one instructor ID is required' });
     }
 
     const course = await Course.findByIdAndUpdate(
       id,
-      { instructorId },
+      {
+        instructorId: instructorsList[0],
+        instructors: instructorsList
+      },
       { new: true }
-    ).populate('instructorId', 'name email username role');
+    )
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role');
 
     if (!course) {
       return res.status(404).json({ success: false, message: 'Course not found' });
@@ -380,7 +402,7 @@ export const assignInstructor = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Instructor assigned successfully',
+      message: 'Instructors assigned successfully',
       course
     });
   } catch (error) {
@@ -417,7 +439,8 @@ export const addLessonToCourse = async (req, res) => {
 
     await course.save();
     const updatedCourse = await Course.findById(id)
-      .populate('instructorId', 'name email username')
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role')
       .populate({
         path: 'modules.lessons.videoId',
         select: 'title description s3Url fileKey durationSec status'
@@ -434,9 +457,112 @@ export const addLessonToCourse = async (req, res) => {
   }
 };
 
+export const editLessonInCourse = async (req, res) => {
+  try {
+    const { id, moduleIndex, lessonIndex } = req.params;
+    const { title, topicTag, difficulty, videoId } = req.body;
+
+    const course = await Course.findById(id);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    // Check authorization: Admin, Course Owner, or Assigned Instructor
+    const isOwner = course.instructorId?.toString() === req.user.id;
+    const isInstructor = course.instructors?.some(insId => insId.toString() === req.user.id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && !isOwner && !isInstructor) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to edit lessons in this course' });
+    }
+
+    const mIdx = parseInt(moduleIndex, 10);
+    const lIdx = parseInt(lessonIndex, 10);
+
+    const mod = course.modules?.[mIdx];
+    if (!mod || !mod.lessons?.[lIdx]) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    const lesson = mod.lessons[lIdx];
+    if (title !== undefined) lesson.title = title;
+    if (topicTag !== undefined) lesson.topicTag = topicTag;
+    if (difficulty !== undefined) lesson.difficulty = difficulty;
+    if (videoId !== undefined) lesson.videoId = videoId;
+
+    await course.save();
+    const updatedCourse = await Course.findById(id)
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role')
+      .populate({
+        path: 'modules.lessons.videoId',
+        select: 'title description s3Url fileKey durationSec status'
+      });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lesson updated successfully',
+      course: updatedCourse
+    });
+  } catch (error) {
+    console.error('Edit lesson error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to edit lesson', error: error.message });
+  }
+};
+
+export const deleteLessonFromCourse = async (req, res) => {
+  try {
+    const { id, moduleIndex, lessonIndex } = req.params;
+
+    const course = await Course.findById(id);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    // Check authorization: Admin, Course Owner, or Assigned Instructor
+    const isOwner = course.instructorId?.toString() === req.user.id;
+    const isInstructor = course.instructors?.some(insId => insId.toString() === req.user.id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && !isOwner && !isInstructor) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to delete lessons in this course' });
+    }
+
+    const mIdx = parseInt(moduleIndex, 10);
+    const lIdx = parseInt(lessonIndex, 10);
+
+    const mod = course.modules?.[mIdx];
+    if (!mod || !mod.lessons?.[lIdx]) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    mod.lessons.splice(lIdx, 1);
+
+    await course.save();
+    const updatedCourse = await Course.findById(id)
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role')
+      .populate({
+        path: 'modules.lessons.videoId',
+        select: 'title description s3Url fileKey durationSec status'
+      });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lesson deleted successfully',
+      course: updatedCourse
+    });
+  } catch (error) {
+    console.error('Delete lesson error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete lesson', error: error.message });
+  }
+};
+
 export const getCourses = async (req, res) => {
   try {
-    const courses = await Course.find().populate('instructorId', 'name email username role');
+    const courses = await Course.find()
+      .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role');
     return res.status(200).json({ success: true, courses });
   } catch (error) {
     console.error('Get courses error:', error);
@@ -448,6 +574,7 @@ export const getCourseById = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
       .populate('instructorId', 'name email username role')
+      .populate('instructors', 'name email username role')
       .populate({
         path: 'modules.lessons.videoId',
         select: 'title description s3Url fileKey durationSec status'

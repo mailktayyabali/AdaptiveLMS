@@ -13,7 +13,9 @@ import {
   getCourseById,
   getInstructors,
   assignInstructor,
-  addLessonToCourse
+  addLessonToCourse,
+  editLessonInCourse,
+  deleteLessonFromCourse
 } from '../controllers/videoController.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -31,8 +33,10 @@ router.get('/instructors', authenticateToken, getInstructors);
 router.get('/courses', getCourses);
 router.get('/courses/:id', getCourseById);
 router.post('/courses', authenticateToken, authorizeRoles('manager', 'admin'), createCourse);
-router.put('/courses/:id/assign-instructor', authenticateToken, authorizeRoles('admin'), assignInstructor);
+router.put('/courses/:id/assign-instructor', authenticateToken, authorizeRoles('admin', 'manager'), assignInstructor);
 router.post('/courses/:id/add-lesson', authenticateToken, authorizeRoles('manager', 'admin'), addLessonToCourse);
+router.put('/courses/:id/modules/:moduleIndex/lessons/:lessonIndex', authenticateToken, authorizeRoles('manager', 'admin'), editLessonInCourse);
+router.delete('/courses/:id/modules/:moduleIndex/lessons/:lessonIndex', authenticateToken, authorizeRoles('manager', 'admin'), deleteLessonFromCourse);
 
 // Resumable Video Upload Routes (Instructors & Admins)
 router.post('/videos/initiate-upload', authenticateToken, authorizeRoles('manager', 'admin'), initiateUpload);

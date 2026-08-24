@@ -1,9 +1,9 @@
 import { useState, useEffect, useContext } from 'react';
-import { fetchCourses, fetchCourseById, createCourse, fetchInstructors, assignInstructorToCourse } from '../services/videoService.js';
+import { fetchCourses, fetchCourseById, createCourse, fetchInstructors, assignInstructorsToCourse } from '../services/videoService.js';
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import CoursePlayer from '../components/CoursePlayer.jsx';
 import ResumableUploader from '../components/ResumableUploader.jsx';
-import { BookOpen, Video, Plus, ArrowLeft, Loader2, Play, UserCheck } from 'lucide-react';
+import { BookOpen, Video, Plus, ArrowLeft, Loader2, Play, Users, CheckSquare, Square } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function CourseListPage() {
@@ -17,13 +17,16 @@ export default function CourseListPage() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [activeTab, setActiveTab] = useState('browse'); // 'browse' | 'player' | 'uploader' | 'createCourse'
 
-  // Create Course Form State
+  // Create Course Form State with Multi-Instructor selection
   const [newCourse, setNewCourse] = useState({
     title: '',
     description: '',
     category: 'Programming',
-    instructorId: ''
+    selectedInstructorIds: []
   });
+
+  // Assign Instructors Modal / Selector State for individual courses
+  const [editingCourseInstructors, setEditingCourseInstructors] = useState(null); // { courseId, selectedIds }
 
   useEffect(() => {
     loadCourses();
@@ -66,6 +69,16 @@ export default function CourseListPage() {
     }
   };
 
+  const handleToggleNewCourseInstructor = (insId) => {
+    setNewCourse(prev => {
+      const exists = prev.selectedInstructorIds.includes(insId);
+      const updated = exists
+        ? prev.selectedInstructorIds.filter(id => id !== insId)
+        : [...prev.selectedInstructorIds, insId];
+      return { ...prev, selectedInstructorIds: updated };
+    });
+  };
+
   const handleCreateCourseSubmit = async (e) => {
     e.preventDefault();
     if (!newCourse.title.trim()) return;
@@ -75,7 +88,9 @@ export default function CourseListPage() {
         title: newCourse.title,
         description: newCourse.description,
         category: newCourse.category,
-        instructorId: newCourse.instructorId || (user?.role === 'admin' && instructors[0]?._id) || user?.id,
+        instructorIds: newCourse.selectedInstructorIds.length > 0
+          ? newCourse.selectedInstructorIds
+          : [user?.id],
         modules: [
           {
             title: 'Module 1: Main Lessons',
@@ -86,7 +101,7 @@ export default function CourseListPage() {
 
       const res = await createCourse(payload);
       if (res.course) {
-        toast.success('Course created successfully!', { theme: 'dark' });
+        toast.success('Course created successfully with assigned teachers!', { theme: 'dark' });
         loadCourses();
         setActiveTab('uploader');
       }
@@ -95,15 +110,32 @@ export default function CourseListPage() {
     }
   };
 
-  const handleAssignInstructorChange = async (courseId, instructorId) => {
+  const handleToggleCourseInstructorAssignment = (insId) => {
+    if (!editingCourseInstructors) return;
+    setEditingCourseInstructors(prev => {
+      const exists = prev.selectedIds.includes(insId);
+      const updated = exists
+        ? prev.selectedIds.filter(id => id !== insId)
+        : [...prev.selectedIds, insId];
+      return { ...prev, selectedIds: updated };
+    });
+  };
+
+  const handleSaveCourseInstructors = async (courseId) => {
+    if (!editingCourseInstructors || editingCourseInstructors.selectedIds.length === 0) {
+      toast.error('Select at least one instructor');
+      return;
+    }
+
     try {
-      const res = await assignInstructorToCourse(courseId, instructorId);
+      const res = await assignInstructorsToCourse(courseId, editingCourseInstructors.selectedIds);
       if (res.course) {
-        toast.success('Instructor assigned successfully!', { theme: 'dark' });
+        toast.success('Assigned instructors updated successfully!', { theme: 'dark' });
         setCourses(prev => prev.map(c => c._id === courseId ? res.course : c));
+        setEditingCourseInstructors(null);
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to assign instructor');
+      toast.error(err.message || 'Failed to update instructors');
     }
   };
 
@@ -115,6 +147,13 @@ export default function CourseListPage() {
     } else {
       setActiveTab('browse');
     }
+  };
+
+  const renderAssignedInstructorsText = (course) => {
+    if (course.instructors && course.instructors.length > 0) {
+      return course.instructors.map(ins => ins.name || ins.username).join(', ');
+    }
+    return course.instructorId?.name || 'Unassigned';
   };
 
   return (
@@ -179,68 +218,109 @@ export default function CourseListPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses.map((course) => (
-                  <div
-                    key={course._id}
-                    className="bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-xl p-6 shadow-xl transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800/50 inline-block">
-                          {course.category || 'General'}
-                        </span>
-                      </div>
+                {courses.map((course) => {
+                  const isEditingInstructors = editingCourseInstructors?.courseId === course._id;
+                  const canEditCourse = user?.role === 'admin' || course.instructorId?._id === user?.id || course.instructors?.some(ins => (ins._id || ins) === user?.id);
 
-                      <h3 className="text-lg font-bold text-slate-100 mb-2">{course.title}</h3>
-                      <p className="text-xs text-slate-400 line-clamp-3 mb-4">{course.description || 'No description provided.'}</p>
-
-                      {/* Instructor Information / Admin Assignment dropdown */}
-                      <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 mb-4">
-                        <div className="flex items-center justify-between text-xs text-slate-300 mb-1">
-                          <span className="font-semibold flex items-center gap-1">
-                            <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-                            Instructor:
-                          </span>
-                          <span className="text-indigo-300 font-medium">
-                            {course.instructorId?.name || 'Unassigned'}
+                  return (
+                    <div
+                      key={course._id}
+                      className="bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-xl p-6 shadow-xl transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800/50 inline-block">
+                            {course.category || 'General'}
                           </span>
                         </div>
 
-                        {/* Admin Change Instructor Control */}
-                        {user?.role === 'admin' && (
-                          <div className="mt-2 pt-2 border-t border-slate-800">
-                            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Assign Instructor (Admin)</label>
-                            <select
-                              value={course.instructorId?._id || ''}
-                              onChange={(e) => handleAssignInstructorChange(course._id, e.target.value)}
-                              className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                            >
-                              <option value="">Select Instructor...</option>
-                              {instructors.map((ins) => (
-                                <option key={ins._id} value={ins._id}>
-                                  {ins.name} ({ins.role})
-                                </option>
-                              ))}
-                            </select>
+                        <h3 className="text-lg font-bold text-slate-100 mb-2">{course.title}</h3>
+                        <p className="text-xs text-slate-400 line-clamp-3 mb-4">{course.description || 'No description provided.'}</p>
+
+                        {/* Instructor Information / Multi-Teacher Assignment Control */}
+                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 mb-4 space-y-2">
+                          <div className="flex items-start justify-between text-xs text-slate-300">
+                            <span className="font-semibold flex items-center gap-1.5 shrink-0">
+                              <Users className="w-3.5 h-3.5 text-indigo-400" />
+                              Teachers:
+                            </span>
+                            <span className="text-indigo-300 font-medium text-right ml-2 line-clamp-2">
+                              {renderAssignedInstructorsText(course)}
+                            </span>
                           </div>
-                        )}
+
+                          {/* Multi-Teacher Assignment Control */}
+                          {canEditCourse && (
+                            <div className="pt-2 border-t border-slate-800">
+                              {!isEditingInstructors ? (
+                                <button
+                                  onClick={() => setEditingCourseInstructors({
+                                    courseId: course._id,
+                                    selectedIds: course.instructors?.map(i => i._id || i) || (course.instructorId?._id ? [course.instructorId._id] : [])
+                                  })}
+                                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                                >
+                                  Manage Assigned Teachers
+                                </button>
+                              ) : (
+                                <div className="space-y-2 mt-1">
+                                  <label className="block text-[10px] uppercase font-bold text-slate-400">Assign Teachers</label>
+                                  <div className="max-h-32 overflow-y-auto space-y-1 bg-slate-900 p-2 rounded border border-slate-800">
+                                    {instructors.map((ins) => {
+                                      const isChecked = editingCourseInstructors.selectedIds.includes(ins._id);
+                                      return (
+                                        <div
+                                          key={ins._id}
+                                          onClick={() => handleToggleCourseInstructorAssignment(ins._id)}
+                                          className="flex items-center gap-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none p-1 rounded hover:bg-slate-800"
+                                        >
+                                          {isChecked ? (
+                                            <CheckSquare className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                          ) : (
+                                            <Square className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                          )}
+                                          <span className="truncate">{ins.name} ({ins.role})</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div className="flex justify-end gap-2 pt-1">
+                                    <button
+                                      onClick={() => setEditingCourseInstructors(null)}
+                                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => handleSaveCourseInstructors(course._id)}
+                                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[10px] font-semibold cursor-pointer"
+                                    >
+                                      Save Teachers
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-400">
+                          {course.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0} lessons
+                        </span>
+                        <button
+                          onClick={() => handleOpenCourse(course._id)}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Start Course</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                      <span className="text-xs text-slate-400">
-                        {course.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0} lessons
-                      </span>
-                      <button
-                        onClick={() => handleOpenCourse(course._id)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow cursor-pointer"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Start Course</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -248,7 +328,13 @@ export default function CourseListPage() {
 
         {/* Tab Content: Course Player */}
         {activeTab === 'player' && selectedCourse && (
-          <CoursePlayer course={selectedCourse} />
+          <CoursePlayer
+            course={selectedCourse}
+            onCourseUpdate={(updated) => {
+              setSelectedCourse(updated);
+              setCourses(prev => prev.map(c => c._id === updated._id ? updated : c));
+            }}
+          />
         )}
 
         {/* Tab Content: Resumable Video Uploader */}
@@ -284,22 +370,31 @@ export default function CourseListPage() {
                 />
               </div>
 
-              {/* Admin Instructor Assignment Dropdown */}
-              {user?.role === 'admin' && (
+              {/* Multi-Teacher Assignment Dropdown / Checkboxes */}
+              {(user?.role === 'admin' || user?.role === 'manager') && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Assign Instructor *</label>
-                  <select
-                    value={newCourse.instructorId}
-                    onChange={(e) => setNewCourse({ ...newCourse, instructorId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-700 rounded-lg text-xs bg-slate-800 text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                  >
-                    <option value="">Select Instructor...</option>
-                    {instructors.map((ins) => (
-                      <option key={ins._id} value={ins._id}>
-                        {ins.name} ({ins.role})
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Assign Teachers / Instructors</label>
+                  <p className="text-[11px] text-slate-400 mb-2">Select one or more teachers assigned to this course.</p>
+
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    {instructors.map((ins) => {
+                      const isChecked = newCourse.selectedInstructorIds.includes(ins._id);
+                      return (
+                        <div
+                          key={ins._id}
+                          onClick={() => handleToggleNewCourseInstructor(ins._id)}
+                          className="flex items-center gap-2 text-xs text-slate-300 hover:text-white cursor-pointer select-none p-1.5 rounded hover:bg-slate-800/80 transition"
+                        >
+                          {isChecked ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-500 shrink-0" />
+                          )}
+                          <span>{ins.name} ({ins.role})</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
