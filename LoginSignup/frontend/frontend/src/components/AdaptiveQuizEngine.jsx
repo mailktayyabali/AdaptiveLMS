@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { fetchQuizById, submitQuizAnswers } from '../services/videoService.js';
+import { fetchQuizById, submitQuizAnswers, fetchLatestQuizAttempt } from '../services/videoService.js';
 import MonacoCodeEditor from './MonacoCodeEditor.jsx';
-import { CheckCircle2, XCircle, Award, ArrowRight, Loader2, BookOpen, AlertCircle, HelpCircle, Lock, RotateCcw } from 'lucide-react';
+import PlagiarismReportModal from './PlagiarismReportModal.jsx';
+import { CheckCircle2, XCircle, Award, ArrowRight, Loader2, BookOpen, AlertCircle, HelpCircle, Lock, RotateCcw, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex = 0, currentLessonIndex = 0, completedLessons = [], canManageLessons = false, onNavigateNext, onQuizComplete }) {
@@ -9,6 +10,7 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
 
   // Student answers state: { [questionId]: { selectedOptionIndex, submittedCode } }
   const [answers, setAnswers] = useState({});
@@ -52,6 +54,26 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
       const data = await fetchQuizById(quizId);
       if (data.quiz) {
         setQuiz(data.quiz);
+
+        // Fetch student's latest attempt result if passed/attempted previously
+        try {
+          const attemptData = await fetchLatestQuizAttempt(quizId);
+          if (attemptData?.attempt) {
+            setSubmissionResult(attemptData.attempt);
+            if (attemptData.attempt.answers) {
+              const prevAnswers = {};
+              attemptData.attempt.answers.forEach(a => {
+                prevAnswers[a.questionId] = {
+                  selectedOptionIndex: a.selectedOptionIndex,
+                  submittedCode: a.submittedCode || ''
+                };
+              });
+              setAnswers(prevAnswers);
+            }
+          }
+        } catch (attemptErr) {
+          // Non-blocking if no previous attempt exists
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to load quiz');
@@ -81,11 +103,21 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
   };
 
   const handleSubmitQuiz = async () => {
-    if (!quiz) return;
+    if (!quiz || !quiz.questions) return;
 
-    // Check if at least one question has been answered
-    const hasAnswers = Object.keys(answers).length > 0;
-    if (!hasAnswers) {
+    // Gather formatted answers for all questions in the quiz
+    const formattedAnswers = quiz.questions.map((q) => {
+      const val = answers[q._id] || {};
+      return {
+        questionId: q._id,
+        selectedOptionIndex: val.selectedOptionIndex !== undefined ? val.selectedOptionIndex : null,
+        submittedCode: val.submittedCode !== undefined ? val.submittedCode : (q.initialCodeTemplate || '')
+      };
+    });
+
+    // Check if at least one question has been answered (option selected or code present)
+    const hasValidAnswer = formattedAnswers.some(a => a.selectedOptionIndex !== null || (a.submittedCode && a.submittedCode.trim().length > 0));
+    if (!hasValidAnswer) {
       toast.error('Please answer at least one question before submitting');
       return;
     }
@@ -93,12 +125,6 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
     setSubmitting(true);
 
     try {
-      const formattedAnswers = Object.entries(answers).map(([qId, val]) => ({
-        questionId: qId,
-        selectedOptionIndex: val.selectedOptionIndex !== undefined ? val.selectedOptionIndex : null,
-        submittedCode: val.submittedCode || ''
-      }));
-
       const res = await submitQuizAnswers({
         quizId: quiz._id,
         answers: formattedAnswers
@@ -177,7 +203,7 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
       {/* Quiz Header & Difficulty Tag */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800">
               Topic: {quiz.topicTag}
             </span>
@@ -190,6 +216,17 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
             }`}>
               Difficulty: {quiz.difficulty}
             </span>
+
+            {canManageLessons && (
+              <button
+                type="button"
+                onClick={() => setShowPlagiarismModal(true)}
+                className="px-2.5 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 rounded-full text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer ml-1"
+              >
+                <ShieldAlert className="w-3 h-3 text-indigo-400" />
+                <span>Plagiarism Audit Report</span>
+              </button>
+            )}
           </div>
           <h2 className="text-xl font-bold text-slate-100">{quiz.title}</h2>
           {quiz.description && <p className="text-xs text-slate-400 mt-1">{quiz.description}</p>}
@@ -360,6 +397,15 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
             <span>Submit Quiz for Evaluation</span>
           </button>
         </div>
+      )}
+
+      {/* Plagiarism Audit Report Modal for Instructors & Admins */}
+      {showPlagiarismModal && (
+        <PlagiarismReportModal
+          quizId={quiz._id}
+          quizTitle={quiz.title}
+          onClose={() => setShowPlagiarismModal(false)}
+        />
       )}
     </div>
   );

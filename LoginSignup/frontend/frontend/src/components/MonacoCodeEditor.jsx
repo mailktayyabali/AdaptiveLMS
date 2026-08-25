@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { Play, RotateCcw, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { runSandboxCode } from '../services/videoService.js';
@@ -10,10 +10,16 @@ export default function MonacoCodeEditor({ initialCode = '', testCases = [], onC
   const [testResults, setTestResults] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Propagate code to parent form on mount and code updates
+  useEffect(() => {
+    if (onCodeChange && code) {
+      onCodeChange(code);
+    }
+  }, [code]);
+
   const handleEditorChange = (value) => {
     const val = value || '';
     setCode(val);
-    if (onCodeChange) onCodeChange(val);
   };
 
   const handleReset = () => {

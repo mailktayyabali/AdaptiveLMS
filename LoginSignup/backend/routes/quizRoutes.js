@@ -6,7 +6,8 @@ import {
   runCodeSandbox,
   submitQuiz,
   getStudentMastery,
-  getPlagiarismReport
+  getPlagiarismReport,
+  getLatestQuizAttempt
 } from '../controllers/quizController.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 
@@ -21,6 +22,7 @@ router.get('/quizzes/:id', getQuizById);
 router.post('/quizzes/sandbox', authenticateToken, runCodeSandbox);
 router.post('/quizzes/submit', authenticateToken, submitQuiz);
 router.get('/quizzes/mastery/student', authenticateToken, getStudentMastery);
+router.get('/quizzes/:quizId/latest-attempt', authenticateToken, getLatestQuizAttempt);
 
 // Instructor / Admin Plagiarism Audit Report
 router.get('/quizzes/:quizId/plagiarism-report', authenticateToken, authorizeRoles('manager', 'admin'), getPlagiarismReport);

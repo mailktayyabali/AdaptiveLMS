@@ -344,3 +344,36 @@ export const getPlagiarismReport = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to fetch plagiarism report', error: error.message });
   }
 };
+
+/**
+ * Fetch Student's Latest Quiz Attempt Result
+ */
+export const getLatestQuizAttempt = async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const userId = req.user.id;
+
+    const latestAttempt = await QuizAttempt.findOne({ userId, quizId })
+      .sort({ createdAt: -1 });
+
+    if (!latestAttempt) {
+      return res.status(200).json({ success: true, attempt: null });
+    }
+
+    return res.status(200).json({
+      success: true,
+      attempt: {
+        scorePercent: latestAttempt.scorePercent,
+        passed: latestAttempt.passed,
+        masteryBefore: latestAttempt.masteryBefore,
+        masteryAfter: latestAttempt.masteryAfter,
+        nextRecommendedDifficulty: latestAttempt.nextRecommendedDifficulty,
+        attemptNumber: latestAttempt.attemptNumber,
+        answers: latestAttempt.answers
+      }
+    });
+  } catch (error) {
+    console.error('Fetch latest quiz attempt error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch latest quiz attempt', error: error.message });
+  }
+};

@@ -231,3 +231,12 @@ export async function fetchPlagiarismReport(quizId) {
   }
   return res.json();
 }
+
+export async function fetchLatestQuizAttempt(quizId) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/${quizId}/latest-attempt`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch latest quiz attempt');
+  }
+  return res.json();
+}
