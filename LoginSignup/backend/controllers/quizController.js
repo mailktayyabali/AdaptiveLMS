@@ -3,6 +3,7 @@ import StudentMastery from '../models/StudentMastery.js';
 import QuizAttempt from '../models/QuizAttempt.js';
 import CodeSubmission from '../models/CodeSubmission.js';
 import Course from '../models/Course.js';
+import StudentProgress from '../models/StudentProgress.js';
 import { executeCodeInSandbox } from '../services/sandboxService.js';
 import { checkPlagiarism } from '../services/plagiarismService.js';
 
@@ -234,6 +235,64 @@ export const submitQuiz = async (req, res) => {
 
     await quizAttempt.save();
 
+    // Update StudentProgress when quiz is passed
+    let updatedProgress = null;
+    if (passed && quiz.courseId) {
+      let studentProg = await StudentProgress.findOne({
+        $or: [
+          { userId, courseId: quiz.courseId },
+          { user: userId, course: quiz.courseId }
+        ]
+      });
+
+      if (!studentProg) {
+        studentProg = new StudentProgress({
+          userId,
+          courseId: quiz.courseId,
+          user: userId,
+          course: quiz.courseId,
+          completedLessons: []
+        });
+      }
+
+      // Find lesson ID matching this quiz in course modules
+      const course = await Course.findById(quiz.courseId);
+      let quizLessonId = quizId;
+      if (course) {
+        for (const mod of course.modules) {
+          const quizLesson = mod.lessons.find(l => String(l.quizId) === String(quizId) || String(l._id) === String(quizId));
+          if (quizLesson) {
+            quizLessonId = quizLesson._id;
+            break;
+          }
+        }
+      }
+
+      const lessonIdStr = String(quizLessonId);
+      const alreadyCompleted = studentProg.completedLessons.some(id => String(id) === lessonIdStr);
+      if (!alreadyCompleted) {
+        studentProg.completedLessons.push(quizLessonId);
+      }
+
+      if (course) {
+        let totalLessons = 0;
+        course.modules.forEach(mod => { totalLessons += mod.lessons.length; });
+        if (totalLessons > 0) {
+          studentProg.overallCourseProgress = Math.min(
+            100,
+            Math.round((studentProg.completedLessons.length / totalLessons) * 100)
+          );
+        }
+      }
+
+      studentProg.updatedAt = Date.now();
+      await studentProg.save();
+      updatedProgress = {
+        completedLessons: studentProg.completedLessons,
+        overallCourseProgress: studentProg.overallCourseProgress
+      };
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Quiz evaluated successfully',
@@ -244,7 +303,8 @@ export const submitQuiz = async (req, res) => {
         masteryAfter,
         nextRecommendedDifficulty,
         attemptNumber: quizAttempt.attemptNumber,
-        answers: answerRecords
+        answers: answerRecords,
+        progress: updatedProgress
       }
     });
   } catch (error) {

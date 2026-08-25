@@ -259,21 +259,34 @@ export const saveProgress = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Course ID is required' });
     }
 
-    let progress = await StudentProgress.findOne({ userId, courseId });
+    let progress = await StudentProgress.findOne({
+      $or: [
+        { userId, courseId },
+        { user: userId, course: courseId }
+      ]
+    });
 
     if (!progress) {
       progress = new StudentProgress({
         userId,
         courseId,
+        user: userId,
+        course: courseId,
         lastWatchedVideoId: lastWatchedVideoId || null,
         lastWatchedTimeSec: lastWatchedTimeSec || 0,
         completedLessons: lessonId ? [lessonId] : []
       });
     } else {
+      progress.user = userId;
+      progress.course = courseId;
       if (lastWatchedVideoId) progress.lastWatchedVideoId = lastWatchedVideoId;
       if (lastWatchedTimeSec !== undefined) progress.lastWatchedTimeSec = Math.floor(lastWatchedTimeSec);
-      if (lessonId && !progress.completedLessons.includes(lessonId)) {
-        progress.completedLessons.push(lessonId);
+      if (lessonId) {
+        const lessonIdStr = String(lessonId);
+        const alreadyCompleted = progress.completedLessons.some(id => String(id) === lessonIdStr);
+        if (!alreadyCompleted) {
+          progress.completedLessons.push(lessonId);
+        }
       }
     }
 

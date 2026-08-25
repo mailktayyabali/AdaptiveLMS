@@ -125,29 +125,35 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
     if (isBuffering) setIsBuffering(false);
     if (!videoRef.current) return;
     const currentTime = Math.floor(videoRef.current.currentTime);
+    const duration = Math.floor(videoRef.current.duration || 0);
+
+    // Auto-mark completed if student reaches within 3 seconds of end or >= 95% duration
+    const isNearEnd = duration > 0 && (currentTime >= duration - 3 || (currentTime / duration) >= 0.95);
 
     if (currentTime > 0 && currentTime - lastSaveTimeRef.current >= 3) {
       lastSaveTimeRef.current = currentTime;
-      persistProgress(currentTime, false);
+      persistProgress(currentTime, isNearEnd);
     }
   };
 
   const persistProgress = async (currentTimeSec, isCompleted = false) => {
     if (!courseData?._id) return;
+    const targetLessonId = currentLesson?._id || currentLesson?.id || currentLesson?.quizId || currentLesson?.videoId?._id || currentLesson?.videoId;
+
     try {
       const res = await saveVideoProgress({
         courseId: courseData._id,
         lastWatchedVideoId: currentVideo?._id || null,
         lastWatchedTimeSec: currentTimeSec,
-        lessonId: isCompleted ? currentLesson?._id : null
+        lessonId: isCompleted ? targetLessonId : null
       });
 
-      if (res?.progress && isCompleted) {
-        setProgress(prev => ({
-          ...prev,
-          completedLessons: res.progress.completedLessons || prev.completedLessons,
-          overallCourseProgress: res.progress.overallCourseProgress || prev.overallCourseProgress
-        }));
+      if (res?.progress) {
+        setProgress({
+          completedLessons: res.progress.completedLessons || [],
+          lastWatchedTimeSec: res.progress.lastWatchedTimeSec || 0,
+          overallCourseProgress: res.progress.overallCourseProgress || 0
+        });
       }
     } catch (err) {
       console.error("Failed to save progress:", err.message);
@@ -440,6 +446,17 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                 completedLessons={progress.completedLessons}
                 canManageLessons={canManageLessons}
                 onNavigateNext={handleAdaptiveNavigate}
+                onQuizComplete={(result) => {
+                  if (result?.progress) {
+                    setProgress(prev => ({
+                      ...prev,
+                      completedLessons: result.progress.completedLessons || prev.completedLessons,
+                      overallCourseProgress: result.progress.overallCourseProgress || prev.overallCourseProgress
+                    }));
+                  } else if (courseData?._id) {
+                    loadProgress();
+                  }
+                }}
               />
             </div>
           ) : streamUrl ? (
@@ -566,7 +583,12 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                 <div className="space-y-1.5">
                   {module.lessons?.map((lesson, lIdx) => {
                     const isSelected = mIdx === currentModIndex && lIdx === currentLessIndex;
-                    const isCompleted = progress.completedLessons.includes(lesson._id);
+                    const isCompleted = progress.completedLessons.some(cId => 
+                      String(cId) === String(lesson._id) || 
+                      String(cId) === String(lesson.id) || 
+                      String(cId) === String(lesson.videoId?._id || lesson.videoId) || 
+                      String(cId) === String(lesson.quizId?._id || lesson.quizId)
+                    );
 
                     return (
                       <div

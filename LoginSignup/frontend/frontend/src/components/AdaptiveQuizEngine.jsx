@@ -4,7 +4,7 @@ import MonacoCodeEditor from './MonacoCodeEditor.jsx';
 import { CheckCircle2, XCircle, Award, ArrowRight, Loader2, BookOpen, AlertCircle, HelpCircle, Lock, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex = 0, currentLessonIndex = 0, completedLessons = [], canManageLessons = false, onNavigateNext }) {
+export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex = 0, currentLessonIndex = 0, completedLessons = [], canManageLessons = false, onNavigateNext, onQuizComplete }) {
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +106,7 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
 
       if (res.result) {
         setSubmissionResult(res.result);
+        if (onQuizComplete) onQuizComplete(res.result);
         toast.success(`Quiz evaluated! Score: ${res.result.scorePercent}%`, { theme: 'dark' });
       }
     } catch (err) {
