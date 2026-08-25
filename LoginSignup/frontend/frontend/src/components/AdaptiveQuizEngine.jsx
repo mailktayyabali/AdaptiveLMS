@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { fetchQuizById, submitQuizAnswers } from '../services/videoService.js';
 import MonacoCodeEditor from './MonacoCodeEditor.jsx';
-import { CheckCircle2, XCircle, Award, ArrowRight, Loader2, BookOpen, AlertCircle, HelpCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Award, ArrowRight, Loader2, BookOpen, AlertCircle, HelpCircle, Lock, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
+export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex = 0, currentLessonIndex = 0, completedLessons = [], canManageLessons = false, onNavigateNext }) {
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -13,6 +13,28 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
   // Student answers state: { [questionId]: { selectedOptionIndex, submittedCode } }
   const [answers, setAnswers] = useState({});
   const [submissionResult, setSubmissionResult] = useState(null);
+
+  const currentModule = course?.modules?.[currentModuleIndex];
+  const currentLesson = currentModule?.lessons?.[currentLessonIndex];
+
+  // Check preceding video lessons in current module before quiz
+  const precedingVideoLessons = [];
+  if (currentModule?.lessons) {
+    for (const lesson of currentModule.lessons) {
+      if (lesson._id === currentLesson?._id || (lesson.quizId && String(lesson.quizId) === String(quizId))) {
+        break; // Stop at the current quiz
+      }
+      if (lesson.type === 'video') {
+        precedingVideoLessons.push(lesson);
+      }
+    }
+  }
+
+  const uncompletedPreceding = precedingVideoLessons.filter(
+    v => !completedLessons.includes(v._id)
+  );
+
+  const isQuizLocked = uncompletedPreceding.length > 0 && !canManageLessons;
 
   useEffect(() => {
     if (quizId) {
@@ -60,6 +82,14 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
 
   const handleSubmitQuiz = async () => {
     if (!quiz) return;
+
+    // Check if at least one question has been answered
+    const hasAnswers = Object.keys(answers).length > 0;
+    if (!hasAnswers) {
+      toast.error('Please answer at least one question before submitting');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -76,13 +106,19 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
 
       if (res.result) {
         setSubmissionResult(res.result);
-        toast.success('Quiz evaluated successfully!', { theme: 'dark' });
+        toast.success(`Quiz evaluated! Score: ${res.result.scorePercent}%`, { theme: 'dark' });
       }
     } catch (err) {
       toast.error(err.message || 'Failed to evaluate quiz');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRetryQuiz = () => {
+    setSubmissionResult(null);
+    setAnswers({});
+    toast.info('Quiz reset. You can now re-attempt all questions!', { theme: 'dark' });
   };
 
   if (loading) {
@@ -99,6 +135,38 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
       <div className="bg-slate-900 border border-slate-800 p-8 rounded-xl text-center text-slate-400 min-h-[360px] flex flex-col items-center justify-center">
         <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
         <p className="text-base font-semibold text-slate-200">{error || 'Quiz not found'}</p>
+      </div>
+    );
+  }
+
+  // Quiz Locked State if Preceding Video Lessons are incomplete
+  if (isQuizLocked) {
+    return (
+      <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-8 text-center text-slate-300 min-h-[360px] flex flex-col items-center justify-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-amber-950/80 border border-amber-700/60 flex items-center justify-center text-amber-400">
+          <Lock className="w-8 h-8" />
+        </div>
+
+        <div className="max-w-md space-y-1">
+          <h3 className="text-lg font-bold text-slate-100">Quiz Locked</h3>
+          <p className="text-xs text-slate-400">
+            Please watch all preceding video lessons in <span className="text-indigo-400 font-semibold">{currentModule?.title || 'this module'}</span> before attempting this quiz.
+          </p>
+        </div>
+
+        <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 max-w-md w-full text-left space-y-2">
+          <span className="text-[11px] font-bold uppercase text-amber-400 block border-b border-slate-800 pb-1">
+            Preceding Lessons Required ({uncompletedPreceding.length} Remaining):
+          </span>
+          <div className="space-y-1">
+            {uncompletedPreceding.map((v) => (
+              <div key={v._id} className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                <span>{v.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -126,50 +194,69 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
           {quiz.description && <p className="text-xs text-slate-400 mt-1">{quiz.description}</p>}
         </div>
 
+        {/* Live Score Display Card */}
         {submissionResult && (
-          <div className="bg-slate-950 border border-indigo-500/50 p-4 rounded-xl text-right">
-            <span className="text-[11px] uppercase font-bold text-slate-400 block">Quiz Result</span>
-            <span className="text-2xl font-extrabold text-indigo-400">{submissionResult.scorePercent}%</span>
-            <span className="text-xs text-slate-300 block font-semibold">
-              Mastery: {submissionResult.masteryBefore}% → <span className="text-emerald-400">{submissionResult.masteryAfter}%</span>
-            </span>
+          <div className="bg-slate-950 border border-indigo-500/50 p-4 rounded-xl text-right space-y-1">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Your Quiz Score</span>
+            <span className="text-3xl font-black text-indigo-400">{submissionResult.scorePercent}%</span>
+            <div className="text-xs text-slate-300 font-semibold flex items-center justify-end gap-2">
+              <span>Attempt #{submissionResult.attemptNumber || 1}</span>
+              <span>•</span>
+              <span>Mastery: {submissionResult.masteryBefore}% → <span className="text-emerald-400 font-bold">{submissionResult.masteryAfter}%</span></span>
+            </div>
           </div>
         )}
       </div>
 
       {/* Evaluation Results Banner & Server Adaptive Path Recommendation */}
       {submissionResult && (
-        <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-3 shadow-inner">
-          <div className="flex items-center gap-3">
-            {submissionResult.passed ? (
-              <Award className="w-8 h-8 text-emerald-400 shrink-0" />
-            ) : (
-              <BookOpen className="w-8 h-8 text-amber-400 shrink-0" />
-            )}
-            <div>
-              <h3 className="text-base font-bold text-white">
-                {submissionResult.passed ? 'Quiz Passed!' : 'Quiz Attempt Complete'}
-              </h3>
-              <p className="text-xs text-slate-400">
-                Server-driven adaptive recommendation for next step:
-                <span className="text-indigo-400 font-bold uppercase ml-1.5">
-                  {submissionResult.nextRecommendedDifficulty} Path
-                </span>
-              </p>
+        <div className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-4 shadow-inner">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              {submissionResult.passed ? (
+                <Award className="w-8 h-8 text-emerald-400 shrink-0" />
+              ) : (
+                <BookOpen className="w-8 h-8 text-amber-400 shrink-0" />
+              )}
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>{submissionResult.passed ? 'Quiz Passed!' : 'Quiz Attempt Completed'}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
+                    submissionResult.passed ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400 border border-amber-800'
+                  }`}>
+                    Score: {submissionResult.scorePercent}%
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Server-driven adaptive recommendation for next step:
+                  <span className="text-indigo-400 font-bold uppercase ml-1.5">
+                    {submissionResult.nextRecommendedDifficulty} Path
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons: Retry Whole Quiz & Continue */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRetryQuiz}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Retry Whole Quiz</span>
+              </button>
+
+              {onNavigateNext && (
+                <button
+                  onClick={() => onNavigateNext(submissionResult.nextRecommendedDifficulty)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer shadow"
+                >
+                  <span>Continue to Next Lesson</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
-
-          {onNavigateNext && (
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => onNavigateNext(submissionResult.nextRecommendedDifficulty)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition cursor-pointer shadow"
-              >
-                <span>Continue to {submissionResult.nextRecommendedDifficulty} Module</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -241,7 +328,7 @@ export default function AdaptiveQuizEngine({ quizId, course, onNavigateNext }) {
                 </div>
               )}
 
-              {/* Detailed Educational Concept Feedback (Not just a red X!) */}
+              {/* Detailed Educational Concept Feedback */}
               {record && (
                 <div className={`p-4 rounded-lg border text-xs space-y-1 ${
                   record.isCorrect

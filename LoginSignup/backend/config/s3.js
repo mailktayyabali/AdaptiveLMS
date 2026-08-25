@@ -21,6 +21,7 @@ export const getS3Client = () => {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     },
+    maxAttempts: 10 // Increase automatic retry attempts for transient TLS socket resets
   });
 };
 
@@ -77,19 +78,32 @@ export const mergeS3Chunks = async (uploadId, totalChunks, finalFileName, folder
   const finalKey = `${cleanFolder}/${Date.now()}-${finalFileName.replace(/\s+/g, "_")}`;
   const chunksFolder = `Tayyab/lms-videos/chunks/${uploadId}`;
 
-  // Download all chunk buffers from S3 in sequence
+  // Download all chunk buffers from S3 with retry mechanism against ECONNRESET
+  const fetchChunkWithRetry = async (chunkKey, maxRetries = 3) => {
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const command = new GetObjectCommand({ Bucket: bucket, Key: chunkKey });
+        const response = await client.send(command);
+        const chunks = [];
+        for await (const chunk of response.Body) {
+          chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+      } catch (err) {
+        lastError = err;
+        console.warn(`Retry attempt ${attempt}/${maxRetries} for chunk ${chunkKey}: ${err.message}`);
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+    throw lastError;
+  };
+
   const chunkBuffers = [];
   for (let i = 0; i < totalChunks; i++) {
     const chunkKey = `${chunksFolder}/chunk_${i}`;
-    const command = new GetObjectCommand({ Bucket: bucket, Key: chunkKey });
-    const response = await client.send(command);
-    
-    // Read stream to buffer
-    const chunks = [];
-    for await (const chunk of response.Body) {
-      chunks.push(chunk);
-    }
-    chunkBuffers.push(Buffer.concat(chunks));
+    const buffer = await fetchChunkWithRetry(chunkKey, 4);
+    chunkBuffers.push(buffer);
   }
 
   // Concatenate buffers into full video buffer

@@ -26,13 +26,14 @@ export const createQuiz = async (req, res) => {
 
     await quiz.save();
 
-    // Optionally attach quiz as a lesson to course module
+    // Attach quiz as a lesson to course module
     const course = await Course.findById(courseId);
     if (course) {
       if (!course.modules || course.modules.length === 0) {
         course.modules = [{ title: 'Module 1: Core Lessons & Quizzes', order: 0, lessons: [] }];
       }
-      const mod = course.modules[0];
+      const targetModIndex = parseInt(req.body.moduleIndex || 0, 10);
+      const mod = course.modules[targetModIndex] || course.modules[0];
       mod.lessons.push({
         title: `Quiz: ${title}`,
         type: 'quiz',

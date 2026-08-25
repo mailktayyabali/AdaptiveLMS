@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useContext } from 'react';
 import { saveVideoProgress, fetchStudentProgress, editLessonInCourse, deleteLessonFromCourse, createQuiz } from '../services/videoService.js';
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import AdaptiveQuizEngine from './AdaptiveQuizEngine.jsx';
-import { CheckCircle, Loader2, Edit2, Trash2, X, Check, Plus, HelpCircle } from 'lucide-react';
+import { CheckCircle, Loader2, Edit2, Trash2, X, Check, Plus, HelpCircle, Code, ListFilter, Trash } from 'lucide-react';
 import { authenticatedFetch } from '../services/authServices.js';
 import { toast } from 'react-toastify';
 
@@ -24,21 +24,31 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
   // Edit Lesson & Create Quiz Modal State
   const [editingLessonInfo, setEditingLessonInfo] = useState(null);
   const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
+
+  // Dynamic Quiz Creation State with multiple MCQ and Code questions
   const [newQuizForm, setNewQuizForm] = useState({
     title: '',
     description: '',
     topicTag: 'javascript',
     difficulty: 'medium',
-    mcqTitle: '',
-    mcqOptionA: '',
-    mcqOptionB: '',
-    mcqOptionC: '',
-    mcqCorrectIdx: 0,
-    mcqExplanation: '',
-    codeTitle: '',
-    codeInitialTemplate: 'function solution(input) {\n  return input;\n}\n',
-    codeTestCaseInput: '"hello"',
-    codeTestCaseExpected: '"hello"'
+    mcqQuestions: [
+      {
+        title: '',
+        optionA: '',
+        optionB: '',
+        optionC: '',
+        correctIdx: 0,
+        explanation: ''
+      }
+    ],
+    codeQuestions: [
+      {
+        title: '',
+        initialTemplate: 'function solution(input) {\n  return input;\n}\n',
+        testCaseInput: '"hello"',
+        testCaseExpected: '"hello"'
+      }
+    ]
   });
 
   useEffect(() => {
@@ -245,6 +255,57 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
     }
   };
 
+  // Dynamic Question Addition & Modification Handlers
+  const handleAddMcqQuestion = () => {
+    setNewQuizForm(prev => ({
+      ...prev,
+      mcqQuestions: [
+        ...prev.mcqQuestions,
+        { title: '', optionA: '', optionB: '', optionC: '', correctIdx: 0, explanation: '' }
+      ]
+    }));
+  };
+
+  const handleRemoveMcqQuestion = (index) => {
+    setNewQuizForm(prev => ({
+      ...prev,
+      mcqQuestions: prev.mcqQuestions.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleMcqChange = (index, field, value) => {
+    setNewQuizForm(prev => {
+      const updated = [...prev.mcqQuestions];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, mcqQuestions: updated };
+    });
+  };
+
+  const handleAddCodeQuestion = () => {
+    setNewQuizForm(prev => ({
+      ...prev,
+      codeQuestions: [
+        ...prev.codeQuestions,
+        { title: '', initialTemplate: 'function solution(input) {\n  return input;\n}\n', testCaseInput: '"test"', testCaseExpected: '"test"' }
+      ]
+    }));
+  };
+
+  const handleRemoveCodeQuestion = (index) => {
+    setNewQuizForm(prev => ({
+      ...prev,
+      codeQuestions: prev.codeQuestions.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleCodeQuestionChange = (index, field, value) => {
+    setNewQuizForm(prev => {
+      const updated = [...prev.codeQuestions];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, codeQuestions: updated };
+    });
+  };
+
   const handleCreateQuizSubmit = async (e) => {
     e.preventDefault();
     if (!newQuizForm.title.trim()) return;
@@ -252,35 +313,44 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
     try {
       const questions = [];
 
-      // Add MCQ if filled
-      if (newQuizForm.mcqTitle.trim()) {
-        questions.push({
-          title: newQuizForm.mcqTitle,
-          type: 'mcq',
-          options: [
-            { text: newQuizForm.mcqOptionA || 'Option A', isCorrect: newQuizForm.mcqCorrectIdx === 0 },
-            { text: newQuizForm.mcqOptionB || 'Option B', isCorrect: newQuizForm.mcqCorrectIdx === 1 },
-            { text: newQuizForm.mcqOptionC || 'Option C', isCorrect: newQuizForm.mcqCorrectIdx === 2 }
-          ],
-          explanation: newQuizForm.mcqExplanation || 'Review core topic concepts.',
-          points: 10
-        });
-      }
+      // Process dynamic MCQ Questions
+      newQuizForm.mcqQuestions.forEach((q, idx) => {
+        if (q.title.trim()) {
+          questions.push({
+            title: q.title,
+            type: 'mcq',
+            options: [
+              { text: q.optionA || 'Option A', isCorrect: q.correctIdx === 0 },
+              { text: q.optionB || 'Option B', isCorrect: q.correctIdx === 1 },
+              { text: q.optionC || 'Option C', isCorrect: q.correctIdx === 2 }
+            ],
+            explanation: q.explanation || 'Review core concepts.',
+            points: 10
+          });
+        }
+      });
 
-      // Add Code Question if filled
-      if (newQuizForm.codeTitle.trim()) {
-        questions.push({
-          title: newQuizForm.codeTitle,
-          type: 'code',
-          initialCodeTemplate: newQuizForm.codeInitialTemplate,
-          testCases: [
-            {
-              input: newQuizForm.codeTestCaseInput,
-              expectedOutput: newQuizForm.codeTestCaseExpected
-            }
-          ],
-          points: 20
-        });
+      // Process dynamic Coding Questions
+      newQuizForm.codeQuestions.forEach((q, idx) => {
+        if (q.title.trim()) {
+          questions.push({
+            title: q.title,
+            type: 'code',
+            initialCodeTemplate: q.initialTemplate,
+            testCases: [
+              {
+                input: q.testCaseInput,
+                expectedOutput: q.testCaseExpected
+              }
+            ],
+            points: 20
+          });
+        }
+      });
+
+      if (questions.length === 0) {
+        toast.error('Please add at least one MCQ or Coding question');
+        return;
       }
 
       const payload = {
@@ -295,7 +365,7 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
 
       const res = await createQuiz(payload);
       if (res.quiz) {
-        toast.success('Adaptive Quiz created and attached to course!', { theme: 'dark' });
+        toast.success(`Adaptive Quiz created with ${questions.length} questions!`, { theme: 'dark' });
         setShowCreateQuizModal(false);
         // Refresh course data
         const updatedRes = await authenticatedFetch(`http://localhost:5000/api/courses/${courseData._id}`).then(r => r.json());
@@ -310,7 +380,6 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
   };
 
   const handleAdaptiveNavigate = (nextDifficulty) => {
-    // Look for next lesson matching recommended difficulty or next index
     let targetLessIdx = currentLessIndex + 1;
     if (currentModule?.lessons?.[targetLessIdx]) {
       setCurrentLessIndex(targetLessIdx);
@@ -366,6 +435,10 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
               <AdaptiveQuizEngine
                 quizId={currentLesson.quizId || currentLesson._id}
                 course={courseData}
+                currentModuleIndex={currentModIndex}
+                currentLessonIndex={currentLessIndex}
+                completedLessons={progress.completedLessons}
+                canManageLessons={canManageLessons}
                 onNavigateNext={handleAdaptiveNavigate}
               />
             </div>
@@ -547,10 +620,10 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
         </div>
       </div>
 
-      {/* Create Adaptive Quiz Modal */}
+      {/* Create Adaptive Quiz Modal with Dynamic Question Builder */}
       {showCreateQuizModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 text-white p-6 rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto space-y-4">
+          <div className="bg-slate-900 border border-slate-800 text-white p-6 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-indigo-400">Create Adaptive Quiz</h3>
               <button onClick={() => setShowCreateQuizModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
@@ -597,113 +670,175 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                 </select>
               </div>
 
-              {/* MCQ Question Section */}
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-                <h4 className="font-bold text-indigo-300 text-xs uppercase">Multiple Choice Question (MCQ)</h4>
-                <input
-                  type="text"
-                  placeholder="MCQ Question Title..."
-                  value={newQuizForm.mcqTitle}
-                  onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqTitle: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
-                />
-
-                <div className="space-y-1.5 pt-1">
-                  <input
-                    type="text"
-                    placeholder="Option A"
-                    value={newQuizForm.mcqOptionA}
-                    onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqOptionA: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Option B"
-                    value={newQuizForm.mcqOptionB}
-                    onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqOptionB: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Option C"
-                    value={newQuizForm.mcqOptionC}
-                    onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqOptionC: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
-                  />
+              {/* Dynamic MCQ Questions Builder */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                  <h4 className="font-bold text-indigo-300 text-xs uppercase flex items-center gap-1.5">
+                    <ListFilter className="w-4 h-4 text-indigo-400" />
+                    Multiple Choice Questions ({newQuizForm.mcqQuestions.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleAddMcqQuestion}
+                    className="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500 text-indigo-200 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add MCQ Question</span>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <label className="block text-slate-400 text-[10px]">Correct Option</label>
-                    <select
-                      value={newQuizForm.mcqCorrectIdx}
-                      onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqCorrectIdx: parseInt(e.target.value, 10) })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white cursor-pointer"
-                    >
-                      <option value={0}>Option A</option>
-                      <option value={1}>Option B</option>
-                      <option value={2}>Option C</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 text-[10px]">Explanation</label>
+                {newQuizForm.mcqQuestions.map((q, qIdx) => (
+                  <div key={qIdx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-slate-300 text-[11px]">MCQ #{qIdx + 1}</span>
+                      {newQuizForm.mcqQuestions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMcqQuestion(qIdx)}
+                          className="text-slate-500 hover:text-red-400 cursor-pointer p-1"
+                        >
+                          <Trash className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
                     <input
                       type="text"
-                      placeholder="Concept explanation..."
-                      value={newQuizForm.mcqExplanation}
-                      onChange={(e) => setNewQuizForm({ ...newQuizForm, mcqExplanation: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      placeholder={`Question ${qIdx + 1} Title...`}
+                      value={q.title}
+                      onChange={(e) => handleMcqChange(qIdx, 'title', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
                     />
+
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        placeholder="Option A"
+                        value={q.optionA}
+                        onChange={(e) => handleMcqChange(qIdx, 'optionA', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Option B"
+                        value={q.optionB}
+                        onChange={(e) => handleMcqChange(qIdx, 'optionB', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Option C"
+                        value={q.optionC}
+                        onChange={(e) => handleMcqChange(qIdx, 'optionC', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="block text-slate-400 text-[10px]">Correct Option</label>
+                        <select
+                          value={q.correctIdx}
+                          onChange={(e) => handleMcqChange(qIdx, 'correctIdx', parseInt(e.target.value, 10))}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white cursor-pointer"
+                        >
+                          <option value={0}>Option A</option>
+                          <option value={1}>Option B</option>
+                          <option value={2}>Option C</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-[10px]">Explanation</label>
+                        <input
+                          type="text"
+                          placeholder="Concept explanation..."
+                          value={q.explanation}
+                          onChange={(e) => handleMcqChange(qIdx, 'explanation', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
 
-              {/* Code Question Sandbox Section */}
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-                <h4 className="font-bold text-emerald-400 text-xs uppercase">Code Question (Monaco Sandbox)</h4>
-                <input
-                  type="text"
-                  placeholder="Code Challenge Title..."
-                  value={newQuizForm.codeTitle}
-                  onChange={(e) => setNewQuizForm({ ...newQuizForm, codeTitle: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
-                />
-
-                <div>
-                  <label className="block text-slate-400 text-[10px]">Initial Solution Template</label>
-                  <textarea
-                    rows={3}
-                    value={newQuizForm.codeInitialTemplate}
-                    onChange={(e) => setNewQuizForm({ ...newQuizForm, codeInitialTemplate: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded p-2 font-mono text-emerald-400 text-[11px]"
-                  />
+              {/* Dynamic Coding Questions Builder */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                  <h4 className="font-bold text-emerald-400 text-xs uppercase flex items-center gap-1.5">
+                    <Code className="w-4 h-4 text-emerald-400" />
+                    Coding Questions ({newQuizForm.codeQuestions.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleAddCodeQuestion}
+                    className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500 text-emerald-200 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Coding Question</span>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-slate-400 text-[10px]">Test Case Input</label>
+                {newQuizForm.codeQuestions.map((q, cIdx) => (
+                  <div key={cIdx} className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-slate-300 text-[11px]">Coding Challenge #{cIdx + 1}</span>
+                      {newQuizForm.codeQuestions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCodeQuestion(cIdx)}
+                          className="text-slate-500 hover:text-red-400 cursor-pointer p-1"
+                        >
+                          <Trash className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
                     <input
                       type="text"
-                      placeholder='"hello"'
-                      value={newQuizForm.codeTestCaseInput}
-                      onChange={(e) => setNewQuizForm({ ...newQuizForm, codeTestCaseInput: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-white"
+                      placeholder={`Coding Challenge ${cIdx + 1} Title...`}
+                      value={q.title}
+                      onChange={(e) => handleCodeQuestionChange(cIdx, 'title', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
                     />
+
+                    <div>
+                      <label className="block text-slate-400 text-[10px]">Initial Solution Template</label>
+                      <textarea
+                        rows={3}
+                        value={q.initialTemplate}
+                        onChange={(e) => handleCodeQuestionChange(cIdx, 'initialTemplate', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 font-mono text-emerald-400 text-[11px]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-slate-400 text-[10px]">Test Case Input</label>
+                        <input
+                          type="text"
+                          placeholder='"hello"'
+                          value={q.testCaseInput}
+                          onChange={(e) => handleCodeQuestionChange(cIdx, 'testCaseInput', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-[10px]">Expected Output</label>
+                        <input
+                          type="text"
+                          placeholder='"hello"'
+                          value={q.testCaseExpected}
+                          onChange={(e) => handleCodeQuestionChange(cIdx, 'testCaseExpected', e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-white"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-slate-400 text-[10px]">Expected Output</label>
-                    <input
-                      type="text"
-                      placeholder='"hello"'
-                      value={newQuizForm.codeTestCaseExpected}
-                      onChange={(e) => setNewQuizForm({ ...newQuizForm, codeTestCaseExpected: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 font-mono text-white"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowCreateQuizModal(false)}
@@ -715,7 +850,7 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                   type="submit"
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow cursor-pointer"
                 >
-                  Create Quiz
+                  Create Adaptive Quiz
                 </button>
               </div>
             </form>
