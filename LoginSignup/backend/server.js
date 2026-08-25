@@ -19,6 +19,7 @@ import roleRoutes from './routes/roleRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
+import quizRoutes from './routes/quizRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -59,6 +60,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', videoRoutes);
+app.use('/api', quizRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {

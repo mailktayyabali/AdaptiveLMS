@@ -159,3 +159,75 @@ export async function fetchStudentProgress(courseId) {
   }
   return res.json();
 }
+
+export async function createQuiz(quizData) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes`, {
+    method: 'POST',
+    body: JSON.stringify(quizData)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to create quiz');
+  }
+  return res.json();
+}
+
+export async function fetchQuizById(quizId) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/${quizId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch quiz');
+  }
+  return res.json();
+}
+
+export async function fetchQuizzesByCourse(courseId) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/course/${courseId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch course quizzes');
+  }
+  return res.json();
+}
+
+export async function runSandboxCode({ userCode, testCases }) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/sandbox`, {
+    method: 'POST',
+    body: JSON.stringify({ userCode, testCases })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to execute code');
+  }
+  return res.json();
+}
+
+export async function submitQuizAnswers({ quizId, answers }) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/submit`, {
+    method: 'POST',
+    body: JSON.stringify({ quizId, answers })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to submit quiz');
+  }
+  return res.json();
+}
+
+export async function fetchStudentMastery() {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/mastery/student`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch student mastery');
+  }
+  return res.json();
+}
+
+export async function fetchPlagiarismReport(quizId) {
+  const res = await authenticatedFetch(`${API_BASE}/quizzes/${quizId}/plagiarism-report`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch plagiarism report');
+  }
+  return res.json();
+}
