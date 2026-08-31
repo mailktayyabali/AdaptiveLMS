@@ -10,7 +10,6 @@ export default function MonacoCodeEditor({ initialCode = '', testCases = [], onC
   const [testResults, setTestResults] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Propagate code to parent form on mount and code updates
   useEffect(() => {
     if (onCodeChange && code) {
       onCodeChange(code);

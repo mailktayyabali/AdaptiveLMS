@@ -359,7 +359,7 @@ export default function AdaptiveQuizEngine({ quizId, course, currentModuleIndex 
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400">Implement your solution in the browser code sandbox below:</p>
                   <MonacoCodeEditor
-                    initialCode={q.initialCodeTemplate}
+                    initialCode={studentAns.submittedCode !== undefined ? studentAns.submittedCode : q.initialCodeTemplate}
                     testCases={q.testCases || []}
                     onCodeChange={(code) => handleCodeChange(q._id, code)}
                   />
