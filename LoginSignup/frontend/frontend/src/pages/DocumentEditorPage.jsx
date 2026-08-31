@@ -114,10 +114,10 @@ const DocumentEditorPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+      <div className="min-h-[70vh] flex items-center justify-center p-6">
         <div className="space-y-4 text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-medium text-slate-400">Loading collaborative document...</p>
+          <div className="w-10 h-10 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Connecting Collaborative Session...</p>
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ const DocumentEditorPage = () => {
   const readOnly = accessLevel === 'viewer';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300">
       {/* Presence Top Bar Wrapped in Error Boundary */}
       <PresenceErrorBoundary>
         <PresenceHeader

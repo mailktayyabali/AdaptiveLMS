@@ -186,11 +186,11 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
   };
 
   const btnClass = (isActive, disabled = false) => `
-    p-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center cursor-pointer select-none
-    ${disabled ? 'opacity-30 cursor-not-allowed text-slate-600 bg-slate-950' :
+    scale-press p-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center cursor-pointer select-none
+    ${disabled ? 'opacity-25 cursor-not-allowed text-slate-600 bg-transparent' :
       isActive
-        ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50 shadow-xs'
-        : 'text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent'
+        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]'
+        : 'text-slate-400 hover:text-white hover:bg-white/[0.06] border border-transparent'
     }
   `;
 
@@ -208,18 +208,18 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
   ];
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-950 border-b border-slate-800/90 rounded-t-2xl shadow-inner">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-black/40 backdrop-blur-md border-b border-white/[0.06] rounded-t-2xl shadow-inner">
+      <div className="flex flex-wrap items-center gap-1">
         
         {/* Block Type Dropdown */}
         <div className="relative">
           <button
             onClick={() => !readOnly && setIsBlockMenuOpen(!isBlockMenuOpen)}
             disabled={readOnly}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border ${
+            className={`scale-press px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border ${
               readOnly
-                ? 'bg-slate-950 border-slate-800 text-slate-600 cursor-not-allowed'
-                : 'bg-slate-900 border-slate-800 text-slate-200 hover:text-white hover:border-slate-700 cursor-pointer'
+                ? 'bg-transparent border-transparent text-slate-600 cursor-not-allowed'
+                : 'bg-white/[0.04] border-white/10 text-slate-200 hover:text-white hover:bg-white/[0.08] cursor-pointer'
             }`}
             title="Turn Into Block Type"
           >
@@ -233,12 +233,12 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
                 className="fixed inset-0 z-20"
                 onClick={() => setIsBlockMenuOpen(false)}
               />
-              <div className="absolute left-0 mt-1 w-44 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-30 py-1 space-y-0.5 backdrop-blur-md">
+              <div className="absolute left-0 mt-1.5 w-44 bg-[#0c101a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-30 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
                 {blockOptions.map((opt) => (
                   <button
                     key={opt.type}
                     onClick={() => setBlockType(opt.type)}
-                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-indigo-600/30 hover:text-white flex items-center gap-2 transition cursor-pointer"
+                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-300 hover:bg-indigo-600/30 hover:text-white rounded-lg flex items-center gap-2 transition cursor-pointer"
                   >
                     <span className="w-5 font-mono text-indigo-400 text-center font-bold">
                       {opt.icon}
@@ -485,44 +485,45 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
 
       {/* Right Toolbar Items: Read-Only Badge & Word/Char Counter */}
       <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-slate-900 border border-slate-800/80 rounded-lg">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/[0.03] border border-white/[0.06] rounded-full tabular-nums text-[11px]">
           <span>{wordCount} words</span>
           <span className="text-slate-600">•</span>
           <span>{charCount} chars</span>
         </div>
 
         {readOnly && (
-          <span className="flex items-center gap-1.5 text-xs bg-amber-950/80 text-amber-300 border border-amber-800/50 px-3 py-1 rounded-full font-medium shadow-xs">
-            <Lock className="w-3.5 h-3.5" /> Read-Only
+          <span className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full shadow-sm">
+            <Lock className="w-3 h-3" /> Read-Only
           </span>
         )}
       </div>
 
       {/* Image Insertion Modal */}
       {isImageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-950/60 border-b border-slate-800/80">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-indigo-400" />
-                <h3 className="font-semibold text-sm">Insert Image</h3>
-              </div>
-              <button
-                onClick={resetImageModal}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800/60 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleInsertImage} className="p-5 space-y-4">
-              {/* Tab Selector */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md double-bezel animate-in zoom-in-95 duration-200">
+            <div className="double-bezel-inner overflow-hidden text-slate-100">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5 bg-black/40 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-indigo-400" />
+                  <h3 className="font-semibold text-xs text-white">Insert Image</h3>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => { setImageTab('upload'); setImageError(''); }}
+                  onClick={resetImageModal}
+                  className="scale-press text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.06] transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleInsertImage} className="p-5 space-y-4">
+                {/* Tab Selector */}
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => { setImageTab('upload'); setImageError(''); }}
                   className={`flex-1 py-1.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer ${
                     imageTab === 'upload'
                       ? 'bg-indigo-600 text-white shadow-xs'
@@ -616,6 +617,7 @@ const PlateToolbar = ({ editor, readOnly, wordCount = 0, charCount = 0 }) => {
             </form>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

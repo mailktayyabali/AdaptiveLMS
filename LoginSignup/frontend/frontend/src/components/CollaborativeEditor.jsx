@@ -152,34 +152,36 @@ const CollaborativeEditor = ({ socket, documentId, initialContent, initialYjsSta
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col min-h-[520px]">
-      {/* Live Remote Cursors Indicator Header */}
-      {remoteCursors.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-950/90 border-b border-slate-800/80 text-xs text-slate-400">
-          <span className="font-medium text-slate-300">Active Collaborators:</span>
-          <div className="flex flex-wrap gap-1.5">
-            {remoteCursors.map((c) => (
-              <span
-                key={c.socketId}
-                className="px-2.5 py-0.5 rounded-full text-white font-medium flex items-center gap-1.5 text-[11px] shadow-xs"
-                style={{ backgroundColor: c.color }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                {c.name}
-              </span>
-            ))}
+    <div className="double-bezel min-h-[560px] flex flex-col">
+      <div className="double-bezel-inner flex-1 flex flex-col overflow-hidden">
+        {/* Live Remote Cursors Indicator Header */}
+        {remoteCursors.length > 0 && (
+          <div className="flex items-center gap-3 px-5 py-2.5 bg-black/40 border-b border-white/[0.06] text-xs text-slate-400">
+            <span className="font-semibold text-slate-300 text-[11px] uppercase tracking-wider">Active Collaborators:</span>
+            <div className="flex flex-wrap gap-2">
+              {remoteCursors.map((c) => (
+                <span
+                  key={c.socketId}
+                  className="px-2.5 py-0.5 rounded-full text-white font-semibold flex items-center gap-1.5 text-[11px] shadow-sm"
+                  style={{ backgroundColor: c.color }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  {c.name}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Plate Editor Container */}
-      <PlateEditor
-        initialContent={initialContent}
-        externalContent={externalContent}
-        readOnly={readOnly}
-        onContentChange={handleContentChange}
-        onSelectionChange={handleSelectionChange}
-      />
+        {/* Plate Editor Container */}
+        <PlateEditor
+          initialContent={initialContent}
+          externalContent={externalContent}
+          readOnly={readOnly}
+          onContentChange={handleContentChange}
+          onSelectionChange={handleSelectionChange}
+        />
+      </div>
     </div>
   );
 };

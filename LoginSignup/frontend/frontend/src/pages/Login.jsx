@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { loginUser, sendOtp, verifyOtpLogin, resetPasswordOtp, googleLogin } from "../services/authServices.js";
 import { ProfileContext } from "../context/ProfileContext.jsx";
 import { GoogleLogin } from "@react-oauth/google";
+import { ArrowRight, Loader2, KeyRound, Mail, Lock, ShieldCheck, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export default function Login({ toggleMode }) {
     // Mode: 'password' or 'otp'
@@ -131,96 +132,124 @@ export default function Login({ toggleMode }) {
     };
 
     return (
-        <div className="w-full">
-            <div className="text-center mb-5">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-                    {authMethod === 'password' ? 'Welcome Back' : (otpStep === 1 ? 'Login with OTP' : (isResetPassword ? 'Reset Password' : 'Verify OTP'))}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="w-full space-y-6">
+            {/* Header / Title */}
+            <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-1">
+                    <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight text-white">
                     {authMethod === 'password' 
-                        ? 'Sign in to access your secure portal' 
-                        : (otpStep === 1 ? 'Enter your email to receive an OTP code' : `Code sent to ${otpEmail}`)}
+                        ? 'Welcome Back' 
+                        : (otpStep === 1 ? 'Instant OTP Sign In' : (isResetPassword ? 'Set New Password' : 'Confirm Security Code'))}
+                </h2>
+                <p className="text-xs text-slate-400">
+                    {authMethod === 'password' 
+                        ? 'Authenticate to access your workspace and documents' 
+                        : (otpStep === 1 ? 'Enter your email to receive a temporary one-time password' : `6-digit code delivered to ${otpEmail}`)}
                 </p>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="flex gap-2 mb-4">
+            {/* Segmented Mode Switcher */}
+            <div className="p-1 rounded-xl bg-black/40 border border-white/[0.08] flex items-center gap-1">
                 <button
                     type="button"
                     onClick={() => { setAuthMethod('password'); setError(''); setSuccessMsg(''); }}
-                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-md transition-colors ${
+                    className={`scale-press flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                         authMethod === 'password'
-                            ? 'bg-blue-600 text-white shadow'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-white/10 font-bold'
+                            : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
-                    Password Login
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Password</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => { setAuthMethod('otp'); setOtpStep(1); setError(''); setSuccessMsg(''); }}
-                    className={`flex-1 py-2 px-3 text-xs font-semibold rounded-md transition-colors ${
+                    className={`scale-press flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                         authMethod === 'otp'
-                            ? 'bg-blue-600 text-white shadow'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-white/10 font-bold'
+                            : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
-                    Login with OTP
-                </button>
-            </div>
-            <div className="mt-4 mb-4 flex flex-col gap-2.5 items-center">
-                <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => {
-                        setError('Google login failed. Please try again.');
-                    }}
-                />  
-                <button
-                    type="button"
-                    onClick={handleGithubLogin}
-                    className="w-[215px] flex items-center justify-center gap-2.5 bg-[#24292e] hover:bg-black text-white rounded py-2 px-4 text-sm font-medium transition-colors shadow-sm"
-                >
-                    <svg height="18" width="18" viewBox="0 0 16 16" fill="white">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                    </svg>
-                    Sign in with GitHub
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>One-Time Code</span>
                 </button>
             </div>
 
+            {/* Social Authentication Providers */}
+            <div className="flex flex-col gap-3 items-center">
+                <div className="w-full flex justify-center">
+                    <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => setError('Google login failed. Please try again.')}
+                    />  
+                </div>
+                <button
+                    type="button"
+                    onClick={handleGithubLogin}
+                    className="scale-press w-full max-w-[280px] flex items-center justify-center gap-2.5 bg-white/[0.05] hover:bg-white/[0.09] text-white border border-white/10 rounded-xl py-2 px-4 text-xs font-medium transition-all shadow-sm"
+                >
+                    <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    <span>Continue with GitHub</span>
+                </button>
+            </div>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center my-4">
+                <div className="w-full border-t border-white/[0.08]" />
+                <span className="absolute px-3 bg-[#0c101a] text-[10px] uppercase font-semibold tracking-wider text-slate-500">
+                    or continue with
+                </span>
+            </div>
+
+            {/* Status Notifications */}
             {error && (
-                <div className="p-3 rounded-md text-sm mb-4 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/40 dark:border-red-600 dark:text-red-300">
+                <div className="p-3.5 rounded-xl text-xs bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                     <span>{error}</span>
                 </div>
             )}
 
             {successMsg && (
-                <div className="p-3 rounded-md text-sm mb-4 bg-green-100 border border-green-400 text-green-700 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300">
+                <div className="p-3.5 rounded-xl text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>{successMsg}</span>
                 </div>
             )}
 
+            {/* Form Mode 1: Password Login */}
             {authMethod === 'password' && (
-                <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5 min-w-0">
-                        <label htmlFor="login-username" className="text-xs font-semibold text-slate-600 dark:text-slate-300">Username or Email</label>
-                        <input
-                            id="login-username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Enter username or email"
-                            className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
+                <form onSubmit={handlePasswordLogin} className="space-y-4">
+                    <div className="space-y-1.5">
+                        <label htmlFor="login-username" className="text-xs font-medium text-slate-300">
+                            Username or Email
+                        </label>
+                        <div className="relative">
+                            <input
+                                id="login-username"
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="name@domain.com"
+                                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                required
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                            <label htmlFor="login-password" className="text-xs font-semibold text-slate-600 dark:text-slate-300">Password</label>
+                            <label htmlFor="login-password" className="text-xs font-medium text-slate-300">
+                                Password
+                            </label>
                             <button
                                 type="button"
                                 onClick={() => { setAuthMethod('otp'); setOtpStep(1); setIsResetPassword(true); setError(''); setSuccessMsg(''); }}
-                                className="bg-transparent border-0 text-blue-600 dark:text-blue-400 font-semibold underline text-xs cursor-pointer hover:text-blue-700"
+                                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
                             >
                                 Forgot Password?
                             </button>
@@ -231,95 +260,110 @@ export default function Login({ toggleMode }) {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                             required
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer mt-1"
                         disabled={loading}
+                        className="scale-press group w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-60 text-white rounded-xl font-semibold text-xs transition-all shadow-[0_4px_16px_rgba(79,70,229,0.3)] border border-indigo-400/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
                     >
                         {loading ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        ) : (
                             <>
-                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                <span>Signing in...</span>
+                                <span>Sign In to Workspace</span>
+                                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                                    <ArrowRight className="w-3 h-3 text-white" />
+                                </div>
                             </>
-                        ) : 'Sign In'}
+                        )}
                     </button>
                 </form>
             )}
 
+            {/* Form Mode 2: OTP Login / Reset */}
             {authMethod === 'otp' && (
                 <div>
                     {otpStep === 1 ? (
-                        <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5 min-w-0">
-                                <label htmlFor="otp-email" className="text-xs font-semibold text-slate-600 dark:text-slate-300">Registered Email</label>
+                        <form onSubmit={handleSendOtp} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label htmlFor="otp-email" className="text-xs font-medium text-slate-300">
+                                    Registered Email Address
+                                </label>
                                 <input
                                     id="otp-email"
                                     type="email"
                                     value={otpEmail}
                                     onChange={(e) => setOtpEmail(e.target.value)}
                                     placeholder="Enter your email"
-                                    className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                                     required
                                 />
                             </div>
 
                             <button
                                 type="submit"
-                                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 disabled={loading}
+                                className="scale-press group w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-60 text-white rounded-xl font-semibold text-xs transition-all shadow-[0_4px_16px_rgba(79,70,229,0.3)] border border-indigo-400/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
                             >
                                 {loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                ) : (
                                     <>
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                        <span>Sending Code...</span>
+                                        <span>Dispatch Verification Code</span>
+                                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                                            <ArrowRight className="w-3 h-3 text-white" />
+                                        </div>
                                     </>
-                                ) : 'Send OTP Code'}
+                                )}
                             </button>
                         </form>
                     ) : (
-                        <form onSubmit={handleVerifyOtpLogin} className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5 min-w-0">
-                                <label htmlFor="otp-code" className="text-xs font-semibold text-slate-600 dark:text-slate-300">6-Digit OTP Code</label>
+                        <form onSubmit={handleVerifyOtpLogin} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label htmlFor="otp-code" className="text-xs font-medium text-slate-300">
+                                    Enter 6-Digit Code
+                                </label>
                                 <input
                                     id="otp-code"
                                     type="text"
                                     maxLength="6"
                                     value={otpCode}
                                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                                    placeholder="123456"
-                                    className="w-full px-3 py-2 text-xl font-bold tracking-widest text-center border border-slate-300 dark:border-slate-600 rounded-md bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="••••••"
+                                    className="w-full px-3.5 py-3 text-2xl font-mono font-bold tracking-[0.4em] text-center rounded-xl bg-black/40 border border-white/10 text-indigo-400 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                                     required
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2 my-1">
+                            <div className="flex items-center gap-2 px-1">
                                 <input
                                     type="checkbox"
                                     id="toggle-reset-pass"
                                     checked={isResetPassword}
                                     onChange={(e) => setIsResetPassword(e.target.checked)}
-                                    className="w-auto cursor-pointer"
+                                    className="w-4 h-4 rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-0 cursor-pointer"
                                 />
-                                <label htmlFor="toggle-reset-pass" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer m-0">
-                                    Set new password for account
+                                <label htmlFor="toggle-reset-pass" className="text-xs text-slate-300 cursor-pointer select-none">
+                                    Reset password with this code
                                 </label>
                             </div>
 
                             {isResetPassword && (
-                                <div className="flex flex-col gap-1.5 min-w-0">
-                                    <label htmlFor="new-password" className="text-xs font-semibold text-slate-600 dark:text-slate-300">New Password</label>
+                                <div className="space-y-1.5 animate-in fade-in duration-200">
+                                    <label htmlFor="new-password" className="text-xs font-medium text-slate-300">
+                                        New Account Password
+                                    </label>
                                     <input
                                         id="new-password"
                                         type="password"
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="Min. 6 characters"
-                                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Minimum 6 characters"
+                                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                                         required={isResetPassword}
                                     />
                                 </div>
@@ -327,22 +371,26 @@ export default function Login({ toggleMode }) {
 
                             <button
                                 type="submit"
-                                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 disabled={loading}
+                                className="scale-press group w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-60 text-white rounded-xl font-semibold text-xs transition-all shadow-[0_4px_16px_rgba(79,70,229,0.3)] border border-indigo-400/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
                             >
                                 {loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                ) : (
                                     <>
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                        <span>Verifying...</span>
+                                        <span>{isResetPassword ? 'Set New Password & Enter' : 'Verify & Continue'}</span>
+                                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+                                            <ArrowRight className="w-3 h-3 text-white" />
+                                        </div>
                                     </>
-                                ) : (isResetPassword ? 'Reset Password & Sign In' : 'Verify & Sign In')}
+                                )}
                             </button>
 
-                            <div className="flex justify-between mt-2 text-xs">
+                            <div className="flex justify-between items-center px-1 text-xs text-slate-400">
                                 <button
                                     type="button"
                                     onClick={() => { setOtpStep(1); setError(''); setSuccessMsg(''); }}
-                                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 font-semibold underline cursor-pointer hover:text-blue-700"
+                                    className="hover:text-white transition-colors"
                                 >
                                     Change Email
                                 </button>
@@ -350,7 +398,7 @@ export default function Login({ toggleMode }) {
                                     type="button"
                                     onClick={handleSendOtp}
                                     disabled={loading}
-                                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 font-semibold underline cursor-pointer hover:text-blue-700 disabled:opacity-50"
+                                    className="text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
                                 >
                                     Resend Code
                                 </button>
@@ -360,9 +408,14 @@ export default function Login({ toggleMode }) {
                 </div>
             )}
 
-            <div className="mt-5 flex justify-center items-center gap-2 text-xs">
-                <span className="text-slate-500 dark:text-slate-400">New to our platform?</span>
-                <button type="button" onClick={toggleMode} className="bg-transparent border-0 text-blue-600 dark:text-blue-400 font-semibold underline cursor-pointer hover:text-blue-700">
+            {/* Bottom Toggle Footer */}
+            <div className="pt-2 text-center text-xs text-slate-400">
+                <span>New to CollabEditor? </span>
+                <button 
+                    type="button" 
+                    onClick={toggleMode} 
+                    className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors cursor-pointer"
+                >
                     Create an account
                 </button>
             </div>

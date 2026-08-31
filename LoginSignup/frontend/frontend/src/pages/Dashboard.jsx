@@ -232,55 +232,68 @@ export default function Dashboard() {
     if (!user) return null;
 
     const getRoleBadgeClass = (role) => {
-        if (role === 'admin') return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-purple-700 text-white';
-        if (role === 'manager') return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-amber-600 text-white';
-        return 'inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-600 text-white';
+        if (role === 'admin') return 'inline-flex items-center px-3 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30';
+        if (role === 'manager') return 'inline-flex items-center px-3 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30';
+        return 'inline-flex items-center px-3 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
     };
 
     const renderSortIcon = (field) => {
-        if (sortBy !== field) return <span className="ml-1 text-xs opacity-60">↕</span>;
-        return sortOrder === 'asc' ? <span className="ml-1 text-xs">▲</span> : <span className="ml-1 text-xs">▼</span>;
+        if (sortBy !== field) return <span className="ml-1 text-xs opacity-40">↕</span>;
+        return sortOrder === 'asc' ? <span className="ml-1 text-xs text-indigo-400">▲</span> : <span className="ml-1 text-xs text-indigo-400">▼</span>;
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
-            {/* Header */}
-            <div className="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md text-white px-6 md:px-10 py-5 shadow-xl flex flex-wrap justify-between items-center gap-4">
-                <h1 className="text-2xl font-bold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
-                    Dashboard
-                </h1>
+        <div className="min-h-screen text-slate-100 pb-16">
+            {/* Top Sub-Header */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6 flex flex-wrap justify-between items-center gap-4 border-b border-white/[0.08]">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white">
+                        Workspace Console
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-0.5">Role-Based Access Control, ticket support, and user administration</p>
+                </div>
                 <button
                     onClick={handleLogout}
-                    className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-md text-sm font-semibold transition-all shadow-md hover:-translate-y-0.5 cursor-pointer"
+                    className="scale-press px-4 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-full text-xs font-semibold transition-all border border-rose-500/30 cursor-pointer"
                 >
-                    Logout
+                    Sign Out
                 </button>
             </div>
 
             {/* Main Content */}
-            <div className="p-4 md:p-10 max-w-7xl mx-auto">
-                <div className="bg-white p-6 md:p-8 rounded-xl mb-8 shadow-xl border-l-4 border-indigo-500">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Welcome, {user.name}!</h2>
-                    <p className="text-slate-600 text-base">Role: <strong className="text-indigo-600 font-semibold">{user.role.toUpperCase()}</strong></p>
+            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+                {/* Welcome Card */}
+                <div className="double-bezel">
+                    <div className="double-bezel-inner p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className="text-xs text-slate-400 font-medium">Signed in as</div>
+                            <h2 className="text-2xl font-extrabold text-white tracking-tight">{user.name}</h2>
+                            <p className="text-xs text-slate-400">{user.email}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-slate-400">System Role:</span>
+                            <span className={getRoleBadgeClass(user.role)}>{user.role}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {error && (
-                    <div className="text-red-700 p-4 bg-red-100 border-l-4 border-red-500 rounded-md mb-6 font-medium">
+                    <div className="text-rose-300 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs font-medium">
                         {error}
                     </div>
                 )}
 
                 {initialLoading ? (
-                    <div className="text-center py-10 text-xl font-semibold text-white">Loading...</div>
+                    <div className="text-center py-16 text-sm font-semibold text-slate-400 animate-pulse">Loading workspace telemetry...</div>
                 ) : (
                     <>
                         {/* Tab Switcher */}
-                        <div className="flex gap-3 mb-6 overflow-x-auto">
+                        <div className="p-1 rounded-full bg-white/[0.04] border border-white/10 inline-flex gap-1 overflow-x-auto max-w-full">
                             <button
-                                className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                className={`scale-press px-5 py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
                                     activeTab === 'tickets'
-                                        ? 'bg-white text-slate-900 shadow-lg font-bold'
-                                        : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                        ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-white/15'
+                                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                                 }`}
                                 onClick={() => setActiveTab('tickets')}
                             >
@@ -289,20 +302,20 @@ export default function Dashboard() {
                             {user.role === 'admin' && (
                                 <>
                                     <button
-                                        className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                        className={`scale-press px-5 py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
                                             activeTab === 'users'
-                                                ? 'bg-white text-slate-900 shadow-lg font-bold'
-                                                : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                                ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-white/15'
+                                                : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                                         }`}
                                         onClick={() => setActiveTab('users')}
                                     >
                                         User Management
                                     </button>
                                     <button
-                                        className={`px-6 py-3 text-sm font-semibold rounded-lg backdrop-blur-sm transition-all cursor-pointer ${
+                                        className={`scale-press px-5 py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
                                             activeTab === 'roles'
-                                                ? 'bg-white text-slate-900 shadow-lg font-bold'
-                                                : 'bg-white/20 border border-white/30 text-white hover:bg-white/30'
+                                                ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-white/15'
+                                                : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                                         }`}
                                         onClick={() => setActiveTab('roles')}
                                     >
@@ -317,319 +330,310 @@ export default function Dashboard() {
 
                         {/* Dynamic Roles & Permissions Matrix Tab Content */}
                         {activeTab === 'roles' && user.role === 'admin' && (
-                            <div className="bg-white p-6 md:p-8 rounded-xl shadow-xl overflow-x-auto">
-                                <div className="mb-6">
-                                    <h3 className="text-xl font-bold text-slate-800 border-b-2 border-indigo-500 pb-2 mb-2">
-                                        Dynamic Role Permissions (RBAC)
-                                    </h3>
-                                    <p className="text-slate-600 text-sm">
-                                        Create new roles and modify their permissions dynamically in MongoDB with zero hardcoded rules.
-                                    </p>
-                                </div>
+                            <div className="double-bezel">
+                                <div className="double-bezel-inner p-6 sm:p-8 space-y-6">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white tracking-tight">
+                                            Dynamic Role Permissions (RBAC)
+                                        </h3>
+                                        <p className="text-slate-400 text-xs mt-1">
+                                            Create custom roles and modify real-time access scopes in MongoDB without redeploying code.
+                                        </p>
+                                    </div>
 
-                                {/* Create New Role Form Card */}
-                                <div className="bg-slate-50 border border-indigo-200 p-5 rounded-xl mb-6 shadow-sm">
-                                    <h4 className="text-sm font-bold text-slate-800 mb-3">
-                                        Create New Custom Role
-                                    </h4>
-                                    <form onSubmit={handleCreateRole} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Role Name *</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. supervisor, editor, admin"
-                                                value={newRoleData.name}
-                                                onChange={(e) => setNewRoleData({ ...newRoleData, name: e.target.value })}
-                                                required
-                                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Role description..."
-                                                value={newRoleData.description}
-                                                onChange={(e) => setNewRoleData({ ...newRoleData, description: e.target.value })}
-                                                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-700 mb-1">Ticket Permissions</label>
-                                            <div className="flex items-center gap-2 text-xs font-medium pt-2 text-slate-700">
-                                                <label className="inline-flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newRoleData.canCreateTicket}
-                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canCreateTicket: e.target.checked })}
-                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span>Create</span>
-                                                </label>
-                                                <label className="inline-flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newRoleData.canReadTicket}
-                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canReadTicket: e.target.checked })}
-                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span>Read</span>
-                                                </label>
-                                                <label className="inline-flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newRoleData.canUpdateTicket}
-                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canUpdateTicket: e.target.checked })}
-                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span>Update</span>
-                                                </label>
-                                                <label className="inline-flex items-center gap-1 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newRoleData.canDeleteTicket}
-                                                        onChange={(e) => setNewRoleData({ ...newRoleData, canDeleteTicket: e.target.checked })}
-                                                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span>Delete</span>
-                                                </label>
+                                    {/* Create New Role Form Card */}
+                                    <div className="p-5 rounded-2xl bg-black/40 border border-white/10 space-y-4">
+                                        <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                                            Create New Custom Role
+                                        </h4>
+                                        <form onSubmit={handleCreateRole} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-300 mb-1">Role Name *</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. auditor, reviewer"
+                                                    value={newRoleData.name}
+                                                    onChange={(e) => setNewRoleData({ ...newRoleData, name: e.target.value })}
+                                                    required
+                                                    className="w-full px-3 py-2 border border-white/10 rounded-xl text-xs bg-[#080c14] text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                                                />
                                             </div>
-                                        </div>
-                                        <div>
-                                            <button
-                                                type="submit"
-                                                disabled={creatingRole}
-                                                className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white rounded-md text-sm font-semibold transition-all shadow cursor-pointer"
-                                            >
-                                                {creatingRole ? 'Creating...' : '+ Create Role'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Role responsibilities..."
+                                                    value={newRoleData.description}
+                                                    onChange={(e) => setNewRoleData({ ...newRoleData, description: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-white/10 rounded-xl text-xs bg-[#080c14] text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-300 mb-1">Ticket Permissions</label>
+                                                <div className="flex items-center gap-3 text-xs font-medium pt-2 text-slate-300">
+                                                    <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newRoleData.canCreateTicket}
+                                                            onChange={(e) => setNewRoleData({ ...newRoleData, canCreateTicket: e.target.checked })}
+                                                            className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                                                        />
+                                                        <span>Create</span>
+                                                    </label>
+                                                    <label className="inline-flex items-center gap-1 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newRoleData.canReadTicket}
+                                                            onChange={(e) => setNewRoleData({ ...newRoleData, canReadTicket: e.target.checked })}
+                                                            className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                                                        />
+                                                        <span>Read</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <button
+                                                    type="submit"
+                                                    disabled={creatingRole}
+                                                    className="scale-press w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl text-xs font-semibold transition-all shadow-[0_4px_16px_rgba(79,70,229,0.3)] border border-indigo-400/20 cursor-pointer disabled:opacity-50"
+                                                >
+                                                    {creatingRole ? 'Creating Role...' : '+ Save Role'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
 
-                                <table className="w-full border-collapse text-sm">
-                                    <thead>
-                                        <tr className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-                                            <th className="p-4 text-left font-semibold">Role Name</th>
-                                            <th className="p-4 text-left font-semibold">Description</th>
-                                            <th className="p-4 text-center font-semibold">Role Ticket Permissions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                        {roles && roles.length > 0 ? (
-                                            roles.map(r => (
-                                                <tr key={r._id} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="p-4 text-slate-800 font-bold uppercase tracking-wide">
-                                                        <span className={getRoleBadgeClass(r.name)}>
-                                                            {r.name}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-slate-600 text-xs">{r.description || 'System Role'}</td>
-                                                    <td className="p-4 text-center">
-                                                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs font-medium text-slate-700">
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={r.permissions?.canCreateTicket ?? false}
-                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canCreateTicket', r.permissions?.canCreateTicket)}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Create</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={r.permissions?.canReadTicket ?? true}
-                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canReadTicket', r.permissions?.canReadTicket)}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Read</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={r.permissions?.canUpdateTicket ?? false}
-                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canUpdateTicket', r.permissions?.canUpdateTicket)}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Update</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={r.permissions?.canDeleteTicket ?? false}
-                                                                    onChange={() => handleRolePermissionToggle(r.name, 'canDeleteTicket', r.permissions?.canDeleteTicket)}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Delete</span>
-                                                            </label>
-                                                        </div>
-                                                    </td>
+                                    {/* Roles Table */}
+                                    <div className="overflow-x-auto rounded-xl border border-white/[0.08]">
+                                        <table className="w-full border-collapse text-xs">
+                                            <thead>
+                                                <tr className="bg-white/[0.04] text-slate-400 border-b border-white/[0.08]">
+                                                    <th className="p-3.5 text-left font-semibold uppercase tracking-wider">Role</th>
+                                                    <th className="p-3.5 text-left font-semibold uppercase tracking-wider">Description</th>
+                                                    <th className="p-3.5 text-center font-semibold uppercase tracking-wider">Ticket Permissions</th>
                                                 </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="3" className="text-center py-8 text-slate-500">No roles configured</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/[0.06]">
+                                                {roles && roles.length > 0 ? (
+                                                    roles.map(r => (
+                                                        <tr key={r._id} className="hover:bg-white/[0.02] transition-colors">
+                                                            <td className="p-3.5">
+                                                                <span className={getRoleBadgeClass(r.name)}>
+                                                                    {r.name}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-3.5 text-slate-400">{r.description || 'System Role'}</td>
+                                                            <td className="p-3.5 text-center">
+                                                                <div className="flex items-center justify-center gap-4 text-slate-300">
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={r.permissions?.canCreateTicket ?? false}
+                                                                            onChange={() => handleRolePermissionToggle(r.name, 'canCreateTicket', r.permissions?.canCreateTicket)}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Create</span>
+                                                                    </label>
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={r.permissions?.canReadTicket ?? true}
+                                                                            onChange={() => handleRolePermissionToggle(r.name, 'canReadTicket', r.permissions?.canReadTicket)}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Read</span>
+                                                                    </label>
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={r.permissions?.canUpdateTicket ?? false}
+                                                                            onChange={() => handleRolePermissionToggle(r.name, 'canUpdateTicket', r.permissions?.canUpdateTicket)}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Update</span>
+                                                                    </label>
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={r.permissions?.canDeleteTicket ?? false}
+                                                                            onChange={() => handleRolePermissionToggle(r.name, 'canDeleteTicket', r.permissions?.canDeleteTicket)}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Delete</span>
+                                                                    </label>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="3" className="text-center py-8 text-slate-500">No roles configured</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {/* Admin Users Table Tab Content */}
                         {activeTab === 'users' && user.role === 'admin' && (
-                            <div className="bg-white p-6 md:p-8 rounded-xl shadow-xl overflow-x-auto">
-                                <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-                                    <h3 className="text-xl font-bold text-slate-800 border-b-2 border-indigo-500 pb-2">
-                                        Manage Users ({totalUsers})
-                                    </h3>
-                                    <input
-                                        type="text"
-                                        placeholder="Search by name, email, username..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="px-4 py-2 border-2 border-indigo-500 rounded-lg text-sm w-full sm:w-72 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                                    />
-                                </div>
-
-                                <table 
-                                    className="w-full border-collapse text-sm"
-                                    style={{
-                                        opacity: tableLoading ? 0.6 : 1,
-                                        transition: 'opacity 0.2s ease-in-out'
-                                    }}
-                                >
-                                    <thead>
-                                        <tr className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-                                            <th onClick={() => handleSort('name')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
-                                                Name {renderSortIcon('name')}
-                                            </th>
-                                            <th onClick={() => handleSort('email')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
-                                                Email {renderSortIcon('email')}
-                                            </th>
-                                            <th onClick={() => handleSort('username')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
-                                                Username {renderSortIcon('username')}
-                                            </th>
-                                            <th onClick={() => handleSort('role')} className="p-4 text-left font-semibold cursor-pointer hover:bg-white/10 transition-colors">
-                                                Current Role {renderSortIcon('role')}
-                                            </th>
-                                            <th className="p-4 text-center font-semibold">Assign Role</th>
-                                            <th className="p-4 text-center font-semibold">Ticket Permissions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                        {users && users.length > 0 ? (
-                                            users.map(u => (
-                                                <tr key={u._id} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="p-4 text-slate-800 font-medium">{u.name}</td>
-                                                    <td className="p-4 text-slate-600">{u.email}</td>
-                                                    <td className="p-4 text-slate-600">{u.username}</td>
-                                                    <td className="p-4">
-                                                        <span className={getRoleBadgeClass(u.role)}>
-                                                            {u.role}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <select
-                                                            value={u.role}
-                                                            onChange={(e) => handleRoleChange(u._id, e.target.value)}
-                                                            className="px-3 py-2 border-2 border-indigo-500 rounded-md text-sm font-medium bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all min-w-[140px]"
-                                                        >
-                                                            {Array.from(new Set(['user', 'manager', 'admin', ...roles.map(r => r.name.toLowerCase())])).map(rName => (
-                                                                <option key={rName} value={rName}>{rName.toUpperCase()}</option>
-                                                            ))}
-                                                        </select>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs font-medium text-slate-700">
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager')}
-                                                                    onChange={() => handlePermissionToggle(u._id, 'canCreateTicket', permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Create</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={permissionsMap[u._id]?.canReadTicket ?? true}
-                                                                    onChange={() => handlePermissionToggle(u._id, 'canReadTicket', permissionsMap[u._id]?.canReadTicket ?? true)}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Read</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager')}
-                                                                    onChange={() => handlePermissionToggle(u._id, 'canUpdateTicket', permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Update</span>
-                                                            </label>
-
-                                                            <label className="inline-flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition-colors">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager')}
-                                                                    onChange={() => handlePermissionToggle(u._id, 'canDeleteTicket', permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager'))}
-                                                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                                                />
-                                                                <span>Delete</span>
-                                                            </label>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="6" className="text-center py-10 text-slate-500 text-base">
-                                                    No users found
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-
-                                {/* Pagination Controls */}
-                                <div className="flex flex-wrap justify-between items-center mt-6 pt-4 border-t border-slate-200 gap-4">
-                                    <div className="text-sm font-medium text-slate-600">
-                                        Showing Page <strong>{page}</strong> of <strong>{totalPages}</strong> (Total <strong>{totalUsers}</strong> users)
+                            <div className="double-bezel">
+                                <div className="double-bezel-inner p-6 sm:p-8 space-y-6">
+                                    <div className="flex flex-wrap justify-between items-center gap-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white tracking-tight">
+                                                Manage Users <span className="text-indigo-400 tabular-nums">({totalUsers})</span>
+                                            </h3>
+                                            <p className="text-xs text-slate-400">View and adjust user privileges across system accounts</p>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter users..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            className="px-3.5 py-1.5 rounded-full border border-white/10 text-xs w-full sm:w-72 bg-[#080c14] text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                                        />
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <label htmlFor="limit-select" className="text-sm font-medium text-slate-600">Per Page:</label>
-                                        <select
-                                            id="limit-select"
-                                            value={limit}
-                                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                                            className="px-3 py-1.5 border-2 border-indigo-500 rounded-md text-sm font-semibold bg-white text-slate-800 cursor-pointer"
+
+                                    <div className="overflow-x-auto rounded-xl border border-white/[0.08]">
+                                        <table 
+                                            className="w-full border-collapse text-xs"
+                                            style={{
+                                                opacity: tableLoading ? 0.6 : 1,
+                                                transition: 'opacity 0.2s ease-in-out'
+                                            }}
                                         >
-                                            <option value={5}>5</option>
-                                            <option value={10}>10</option>
-                                            <option value={20}>20</option>
-                                        </select>
-                                        <button
-                                            disabled={page <= 1 || tableLoading}
-                                            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-all cursor-pointer shadow"
-                                        >
-                                            Previous
-                                        </button>
-                                        <button
-                                            disabled={page >= totalPages || tableLoading}
-                                            onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-md text-sm font-semibold transition-all cursor-pointer shadow"
-                                        >
-                                            Next
-                                        </button>
+                                            <thead>
+                                                <tr className="bg-white/[0.04] text-slate-400 border-b border-white/[0.08]">
+                                                    <th onClick={() => handleSort('name')} className="p-3.5 text-left font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition-colors">
+                                                        Name {renderSortIcon('name')}
+                                                    </th>
+                                                    <th onClick={() => handleSort('email')} className="p-3.5 text-left font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition-colors">
+                                                        Email {renderSortIcon('email')}
+                                                    </th>
+                                                    <th onClick={() => handleSort('username')} className="p-3.5 text-left font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition-colors">
+                                                        Username {renderSortIcon('username')}
+                                                    </th>
+                                                    <th onClick={() => handleSort('role')} className="p-3.5 text-left font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition-colors">
+                                                        Current Role {renderSortIcon('role')}
+                                                    </th>
+                                                    <th className="p-3.5 text-center font-semibold uppercase tracking-wider">Assign Role</th>
+                                                    <th className="p-3.5 text-center font-semibold uppercase tracking-wider">Ticket Permissions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/[0.06]">
+                                                {users && users.length > 0 ? (
+                                                    users.map(u => (
+                                                        <tr key={u._id} className="hover:bg-white/[0.02] transition-colors">
+                                                            <td className="p-3.5 text-white font-medium">{u.name}</td>
+                                                            <td className="p-3.5 text-slate-400">{u.email}</td>
+                                                            <td className="p-3.5 text-slate-400">{u.username}</td>
+                                                            <td className="p-3.5">
+                                                                <span className={getRoleBadgeClass(u.role)}>
+                                                                    {u.role}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-3.5 text-center">
+                                                                <select
+                                                                    value={u.role}
+                                                                    onChange={(e) => handleRoleChange(u._id, e.target.value)}
+                                                                    className="px-2.5 py-1 border border-white/10 rounded-lg text-xs font-semibold bg-[#080c14] text-white focus:outline-none focus:border-indigo-500 cursor-pointer min-w-[130px]"
+                                                                >
+                                                                    {Array.from(new Set(['user', 'manager', 'admin', ...roles.map(r => r.name.toLowerCase())])).map(rName => (
+                                                                        <option key={rName} value={rName}>{rName.toUpperCase()}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </td>
+                                                            <td className="p-3.5 text-center">
+                                                                <div className="flex items-center justify-center gap-3 sm:gap-4 text-slate-300">
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                            onChange={() => handlePermissionToggle(u._id, 'canCreateTicket', permissionsMap[u._id]?.canCreateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Create</span>
+                                                                    </label>
+
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={permissionsMap[u._id]?.canReadTicket ?? true}
+                                                                            onChange={() => handlePermissionToggle(u._id, 'canReadTicket', permissionsMap[u._id]?.canReadTicket ?? true)}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Read</span>
+                                                                    </label>
+
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                            onChange={() => handlePermissionToggle(u._id, 'canUpdateTicket', permissionsMap[u._id]?.canUpdateTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Update</span>
+                                                                    </label>
+
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager')}
+                                                                            onChange={() => handlePermissionToggle(u._id, 'canDeleteTicket', permissionsMap[u._id]?.canDeleteTicket ?? (u.role === 'admin' || u.role === 'manager'))}
+                                                                            className="w-3.5 h-3.5 rounded text-indigo-600 cursor-pointer"
+                                                                        />
+                                                                        <span>Delete</span>
+                                                                    </label>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="6" className="text-center py-10 text-slate-500">
+                                                            No users found
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Pagination Controls with Tabular Numbers */}
+                                    <div className="flex flex-wrap justify-between items-center pt-4 border-t border-white/[0.08] gap-4 text-xs">
+                                        <div className="tabular-nums text-slate-400">
+                                            Page <strong className="text-white">{page}</strong> of <strong className="text-white">{totalPages}</strong> (Total <strong className="text-white">{totalUsers}</strong> users)
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <label htmlFor="limit-select" className="text-slate-400">Per Page:</label>
+                                            <select
+                                                id="limit-select"
+                                                value={limit}
+                                                onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                                                className="px-2.5 py-1 border border-white/10 rounded-lg font-semibold bg-[#080c14] text-white cursor-pointer"
+                                            >
+                                                <option value={5}>5</option>
+                                                <option value={10}>10</option>
+                                                <option value={20}>20</option>
+                                            </select>
+                                            <button
+                                                disabled={page <= 1 || tableLoading}
+                                                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                                                className="scale-press px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all border border-white/10 cursor-pointer"
+                                            >
+                                                Previous
+                                            </button>
+                                            <button
+                                                disabled={page >= totalPages || tableLoading}
+                                                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                                                className="scale-press px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all border border-white/10 cursor-pointer"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
