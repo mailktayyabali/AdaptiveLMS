@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Notification from '../models/Notification.js';
 import { setupDocumentSocketHandlers } from './documentSocket.js';
+import { setupLiveClassSocketHandlers } from './liveClassSocket.js';
 
 let io;
 
@@ -15,8 +16,12 @@ export const initSocket = (httpServer) => {
 
     // Middleware to authenticate JWT token from Socket Handshake
     io.use((socket, next) => {
-        const token = socket.handshake.auth?.token || 
+        let token = socket.handshake.auth?.token || 
                       (socket.handshake.headers?.authorization && socket.handshake.headers.authorization.split(' ')[1]);
+
+        if (token && typeof token === 'string' && token.startsWith('Bearer ')) {
+            token = token.slice(7).trim();
+        }
 
         if (!token) {
             return next(new Error('Authentication Error: No token provided'));
@@ -28,6 +33,7 @@ export const initSocket = (httpServer) => {
             socket.user = decoded;
             next();
         } catch (err) {
+            console.error('[Socket Auth Error]:', err.message);
             return next(new Error('Authentication Error: Invalid or expired token'));
         }
     });
@@ -40,6 +46,7 @@ export const initSocket = (httpServer) => {
         socket.join(userId.toString());
 
         setupDocumentSocketHandlers(io, socket);
+        setupLiveClassSocketHandlers(io, socket);
 
         socket.on('disconnect', () => {
             console.log(`User disconnected from Socket: ${userId}`);

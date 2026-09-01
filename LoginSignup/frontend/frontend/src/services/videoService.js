@@ -240,3 +240,54 @@ export async function fetchLatestQuizAttempt(quizId) {
   }
   return res.json();
 }
+
+export async function createLiveSession(sessionData) {
+  const res = await authenticatedFetch(`${API_BASE}/live-sessions/create`, {
+    method: 'POST',
+    body: JSON.stringify(sessionData)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to create live session');
+  }
+  return res.json();
+}
+
+export async function fetchLiveSessionsByCourse(courseId) {
+  const res = await authenticatedFetch(`${API_BASE}/live-sessions/course/${courseId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch live sessions');
+  }
+  return res.json();
+}
+
+export async function fetchLiveSessionById(sessionId) {
+  const res = await authenticatedFetch(`${API_BASE}/live-sessions/${sessionId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch live session');
+  }
+  return res.json();
+}
+
+export async function updateLiveSessionStatus(sessionId, status) {
+  const res = await authenticatedFetch(`${API_BASE}/live-sessions/${sessionId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update live session status');
+  }
+  return res.json();
+}
+
+export async function fetchLiveSessionAttendance(sessionId) {
+  const res = await authenticatedFetch(`${API_BASE}/live-sessions/${sessionId}/attendance`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch live session attendance');
+  }
+  return res.json();
+}

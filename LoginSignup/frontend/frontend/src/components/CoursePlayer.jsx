@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useContext } from 'react';
-import { saveVideoProgress, fetchStudentProgress, editLessonInCourse, deleteLessonFromCourse, createQuiz } from '../services/videoService.js';
+import { saveVideoProgress, fetchStudentProgress, editLessonInCourse, deleteLessonFromCourse, createQuiz, createLiveSession } from '../services/videoService.js';
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import AdaptiveQuizEngine from './AdaptiveQuizEngine.jsx';
-import { CheckCircle, Loader2, Edit2, Trash2, X, Check, Plus, HelpCircle, Code, ListFilter, Trash } from 'lucide-react';
+import LiveClassRoom from './LiveClassRoom.jsx';
+import { CheckCircle, Loader2, Edit2, Trash2, X, Check, Plus, HelpCircle, Code, ListFilter, Trash, Video } from 'lucide-react';
 import { authenticatedFetch } from '../services/authServices.js';
 import { toast } from 'react-toastify';
 
@@ -24,6 +25,50 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
   // Edit Lesson & Create Quiz Modal State
   const [editingLessonInfo, setEditingLessonInfo] = useState(null);
   const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
+
+  // Create Live Class Modal State
+  const [showCreateLiveModal, setShowCreateLiveModal] = useState(false);
+  const [newLiveForm, setNewLiveForm] = useState({
+    title: '',
+    description: '',
+    scheduledStartTime: ''
+  });
+  const [creatingLive, setCreatingLive] = useState(false);
+
+  const handleCreateLiveSession = async (e) => {
+    e.preventDefault();
+    if (!newLiveForm.title.trim() || !courseData?._id) return;
+
+    setCreatingLive(true);
+    try {
+      const res = await createLiveSession({
+        title: newLiveForm.title.trim(),
+        description: newLiveForm.description.trim(),
+        courseId: courseData._id,
+        scheduledStartTime: newLiveForm.scheduledStartTime ? new Date(newLiveForm.scheduledStartTime) : new Date(),
+        moduleIndex: currentModIndex
+      });
+
+      if (res.liveSession) {
+        toast.success('Live Class scheduled successfully!', { theme: 'dark' });
+        setShowCreateLiveModal(false);
+        setNewLiveForm({ title: '', description: '', scheduledStartTime: '' });
+
+        const freshCourseRes = await authenticatedFetch(`/api/courses/${courseData._id}`);
+        if (freshCourseRes.ok) {
+          const freshData = await freshCourseRes.json();
+          if (freshData.course) {
+            setCourseData(freshData.course);
+            if (onCourseUpdate) onCourseUpdate(freshData.course);
+          }
+        }
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to create live session');
+    } finally {
+      setCreatingLive(false);
+    }
+  };
 
   // Dynamic Quiz Creation State with multiple MCQ and Code questions
   const [newQuizForm, setNewQuizForm] = useState({
@@ -406,15 +451,25 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           {canManageLessons && (
-            <button
-              onClick={() => setShowCreateQuizModal(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Adaptive Quiz</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCreateLiveModal(true)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow cursor-pointer"
+              >
+                <Video className="w-4 h-4" />
+                <span>Schedule Live Class</span>
+              </button>
+
+              <button
+                onClick={() => setShowCreateQuizModal(true)}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Adaptive Quiz</span>
+              </button>
+            </div>
           )}
 
           <div className="w-full sm:w-56">
@@ -432,11 +487,21 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
         </div>
       </div>
 
-      {/* Main Grid: Player / Quiz Engine vs Sidebar */}
+      {/* Main Grid: Player / Quiz Engine / Live Class Room vs Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
         {/* Main Content Area */}
         <div className="lg:col-span-2 bg-black relative flex flex-col justify-center items-center min-h-[420px]">
-          {isQuizLesson ? (
+          {currentLesson?.type === 'live' ? (
+            <div className="w-full h-full p-4 bg-slate-950 overflow-y-auto min-h-[500px]">
+              <LiveClassRoom
+                sessionId={currentLesson.liveSessionId || currentLesson._id}
+                courseId={courseData._id}
+                user={user}
+                isInstructor={canManageLessons}
+                onLiveSessionComplete={() => loadProgress()}
+              />
+            </div>
+          ) : isQuizLesson ? (
             <div className="w-full h-full p-4 bg-slate-950 overflow-y-auto max-h-[600px]">
               <AdaptiveQuizEngine
                 quizId={currentLesson.quizId || currentLesson._id}
@@ -587,7 +652,8 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                       String(cId) === String(lesson._id) || 
                       String(cId) === String(lesson.id) || 
                       String(cId) === String(lesson.videoId?._id || lesson.videoId) || 
-                      String(cId) === String(lesson.quizId?._id || lesson.quizId)
+                      String(cId) === String(lesson.quizId?._id || lesson.quizId) ||
+                      String(cId) === String(lesson.liveSessionId?._id || lesson.liveSessionId)
                     );
 
                     return (
@@ -873,6 +939,76 @@ export default function CoursePlayer({ course: initialCourse, activeModuleIndex 
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow cursor-pointer"
                 >
                   Create Adaptive Quiz
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Live Class Modal */}
+      {showCreateLiveModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 text-white p-6 rounded-xl shadow-2xl max-w-md w-full space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-rose-400" />
+                <h3 className="text-base font-bold text-slate-100">Schedule Live Class</h3>
+              </div>
+              <button onClick={() => setShowCreateLiveModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLiveSession} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Live Class Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Masterclass: Advanced WebSockets & WebRTC"
+                  value={newLiveForm.title}
+                  onChange={(e) => setNewLiveForm({ ...newLiveForm, title: e.target.value })}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Description (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Briefly describe what will be covered..."
+                  value={newLiveForm.description}
+                  onChange={(e) => setNewLiveForm({ ...newLiveForm, description: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1">Scheduled Start Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={newLiveForm.scheduledStartTime}
+                  onChange={(e) => setNewLiveForm({ ...newLiveForm, scheduledStartTime: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateLiveModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingLive}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow flex items-center gap-2 cursor-pointer"
+                >
+                  {creatingLive && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>Launch Live Session</span>
                 </button>
               </div>
             </form>

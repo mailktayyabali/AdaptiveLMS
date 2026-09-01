@@ -20,6 +20,7 @@ import documentRoutes from './routes/documentRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
+import liveSessionRoutes from './routes/liveSessionRoutes.js';
 
 import { initSocket } from './utils/socket.js';
 
@@ -34,9 +35,11 @@ const httpServer = createServer(app);
 // Initialize Socket.io
 initSocket(httpServer);
 
-// Global Middlewares
+// Configure Helmet Security Headers with Video Stream & Byte Range CORS support
 app.use(
   helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
     crossOriginResourcePolicy: { policy: "cross-origin" }
   })
@@ -61,6 +64,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', videoRoutes);
 app.use('/api', quizRoutes);
+app.use('/api/live-sessions', liveSessionRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {

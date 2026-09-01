@@ -11,8 +11,11 @@ export default function NotificationBell() {
         let socketInstance = null;
 
         const connectSocket = () => {
-            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+            let token = localStorage.getItem('accessToken') || localStorage.getItem('token');
             if (!token || socketInstance) return;
+            if (token.startsWith('Bearer ')) {
+                token = token.slice(7).trim();
+            }
 
             fetchNotifications(token);
 
