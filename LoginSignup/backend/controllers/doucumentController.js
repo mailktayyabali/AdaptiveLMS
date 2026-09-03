@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Document from "../models/Document.js";
 import DocumentVersion from '../models/DocumentVersion.js';
 import User from '../models/User.js';
@@ -57,6 +58,11 @@ export const getDocumentById = async(req, res) =>{
     try{
         const userId = getUserId(req);
         const documentId = req.params.id || req.params.documentId;
+
+        if (!documentId || !mongoose.Types.ObjectId.isValid(documentId)) {
+            return res.status(404).json({ success: false, message: 'Document not found' });
+        }
+
         const document = await Document.findById(documentId)
         .populate('owner', 'name email')
         .populate('collaborators.user', 'name email username');

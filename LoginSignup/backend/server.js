@@ -61,6 +61,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/documents', documentRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', videoRoutes);
 app.use('/api', quizRoutes);

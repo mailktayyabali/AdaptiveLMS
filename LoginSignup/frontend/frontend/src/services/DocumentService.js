@@ -1,11 +1,27 @@
 import { authenticatedFetch } from './authServices.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+let rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+if (!rawApiUrl.endsWith('/api')) {
+  rawApiUrl = rawApiUrl.replace(/\/+$/, '') + '/api';
+}
+const API_URL = rawApiUrl;
 
 const handleResponse = async (response) => {
-  const data = await response.json();
+  const contentType = response.headers.get('content-type');
+  let data;
+
+  if (contentType && contentType.includes('application/json')) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    const error = new Error(!response.ok ? `Server error (${response.status})` : 'Invalid response format');
+    error.status = response.status;
+    error.data = text;
+    throw error;
+  }
+
   if (!response.ok) {
-    const error = new Error(data.message || 'API request failed');
+    const error = new Error(data?.message || 'API request failed');
     error.status = response.status;
     error.data = data;
     throw error;

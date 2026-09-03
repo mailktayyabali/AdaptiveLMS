@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
+import { authenticatedFetch } from '../services/authServices.js';
 
 export default function NotificationBell() {
     const [notifications, setNotifications] = useState([]);
@@ -17,7 +18,7 @@ export default function NotificationBell() {
                 token = token.slice(7).trim();
             }
 
-            fetchNotifications(token);
+            fetchNotifications();
 
             socketInstance = io('http://localhost:5000', {
                 auth: { token },
@@ -46,7 +47,11 @@ export default function NotificationBell() {
             });
 
             socketInstance.on('connect_error', (err) => {
-                console.error('Socket Connection Error:', err.message);
+                if (err.message?.includes('Authentication Error') || err.message?.includes('token')) {
+                    if (socketInstance) socketInstance.disconnect();
+                } else {
+                    console.error('Socket Connection Error:', err.message);
+                }
             });
         };
 
@@ -56,7 +61,7 @@ export default function NotificationBell() {
             if (!socketInstance) {
                 connectSocket();
             }
-        }, 1500);
+        }, 3000);
 
         return () => {
             clearInterval(interval);
@@ -66,31 +71,23 @@ export default function NotificationBell() {
         };
     }, []);
 
-    const fetchNotifications = async (token) => {
+    const fetchNotifications = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/notifications', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
+            const response = await authenticatedFetch('http://localhost:5000/api/notifications');
+            const data = await response.json().catch(() => ({}));
             if (data.success) {
                 setNotifications(data.notifications || []);
                 setUnreadCount(data.unreadCount || 0);
             }
         } catch (error) {
-            console.error('Error fetching notifications:', error);
+            // Silently swallow unauthorized notifications fetch when logged out
         }
     };
 
     const handleMarkAllAsRead = async () => {
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-        if (!token) return;
-
         try {
-            await fetch('http://localhost:5000/api/notifications/read-all', {
-                method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${token}` }
+            await authenticatedFetch('http://localhost:5000/api/notifications/read-all', {
+                method: 'PATCH'
             });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
