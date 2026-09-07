@@ -44,6 +44,31 @@ const UserSchema = new mongoose.Schema({
         trim: true,
         lowercase: true
     },
+    avatar: {
+        type: String,
+        default: ''
+    },
+    title: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    bio: {
+        type: String,
+        default: '',
+        maxlength: [500, 'Bio cannot exceed 500 characters']
+    },
+    phone: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    socialLinks: {
+        github: { type: String, default: '' },
+        linkedin: { type: String, default: '' },
+        twitter: { type: String, default: '' },
+        website: { type: String, default: '' }
+    },
     otpCode: {
         type: String,
         default: null

@@ -1,7 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import Notification from '../models/Notification.js';
-import { setupDocumentSocketHandlers } from './documentSocket.js';
 import { setupLiveClassSocketHandlers } from './liveClassSocket.js';
 
 let io;
@@ -45,7 +44,6 @@ export const initSocket = (httpServer) => {
         // User joins private room keyed by their user ID
         socket.join(userId.toString());
 
-        setupDocumentSocketHandlers(io, socket);
         setupLiveClassSocketHandlers(io, socket);
 
         socket.on('disconnect', () => {

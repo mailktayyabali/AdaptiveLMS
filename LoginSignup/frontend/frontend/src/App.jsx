@@ -1,9 +1,8 @@
 import Header from "./components/Header.jsx";
 import Main from "./components/Main.jsx";
-import Profile from "./pages/Dashboard.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import UserProfile from "./pages/UserProfile.jsx";
 import GithubCallback from "./pages/GithubCallback.jsx";
-import DocumentList from "./pages/DocumentList.jsx";
-import DocumentEditorPage from "./pages/DocumentEditorPage.jsx";
 import CourseListPage from "./pages/CourseListPage.jsx";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -15,14 +14,14 @@ import 'react-toastify/dist/ReactToastify.css';
 function App() {
   return (
     <Router>
-      <Header />
       <ProfileProvider>
+        <Header />
         <Routes>
           <Route path='/' element={<Main />} />
-          <Route path='/profile' element={<Profile />} />
+          <Route path='/profile' element={<UserProfile />} />
+          <Route path='/admin/dashboard' element={<Dashboard />} />
+          <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/auth/github/callback' element={<GithubCallback />} />
-          <Route path="/documents" element={<DocumentList />} />
-          <Route path="/documents/:id" element={<DocumentEditorPage />} />
           <Route path="/courses" element={<CourseListPage />} />
         </Routes>
       </ProfileProvider>

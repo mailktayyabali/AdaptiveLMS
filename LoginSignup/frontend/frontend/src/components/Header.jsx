@@ -1,21 +1,33 @@
 import logo from '../assets/react.svg';
 import NotificationBell from './NotificationBell.jsx';
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, BookOpen, User, Home, Sparkles } from 'lucide-react';
+import { useContext } from 'react';
+import { ProfileContext } from '../context/ProfileContext.jsx';
+import { BookOpen, User, Home, Sparkles, LayoutDashboard } from 'lucide-react';
 
 export default function Header() {
     const location = useLocation();
+    const { user } = useContext(ProfileContext) || {};
 
     const navItems = [
         { path: '/', label: 'Home', icon: Home, exact: true },
-        { path: '/documents', label: 'Documents', icon: FileText, exact: false },
         { path: '/courses', label: 'Courses', icon: BookOpen, exact: false },
+        ...(user?.role === 'admin' || user?.role === 'manager' 
+            ? [{ path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: false }] 
+            : []),
         { path: '/profile', label: 'Profile', icon: User, exact: false },
     ];
 
     const isActive = (item) => {
         if (item.exact) return location.pathname === item.path;
         return location.pathname.startsWith(item.path);
+    };
+
+    const getInitials = (name) => {
+        if (!name) return 'U';
+        const parts = name.trim().split(' ');
+        if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+        return name.slice(0, 2).toUpperCase();
     };
 
     return (
@@ -35,9 +47,9 @@ export default function Header() {
                 </div>
                 <div className="flex flex-col">
                     <span className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
-                        CollabEditor
+                        Adaptive LMS
                         <span className="hidden sm:inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
-                            <Sparkles className="w-2.5 h-2.5" /> Studio
+                            <Sparkles className="w-2.5 h-2.5" /> Academy
                         </span>
                     </span>
                 </div>
@@ -65,9 +77,27 @@ export default function Header() {
                 })}
             </nav>
 
-            {/* Action Bar / Notification */}
-            <div className="relative flex items-center gap-2">
+            {/* Action Bar / Notification & User Profile Avatar Pill */}
+            <div className="relative flex items-center gap-2.5">
                 <NotificationBell />
+                {user ? (
+                    <Link
+                        to="/profile"
+                        title={user.name || 'My Profile'}
+                        className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                    >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-indigo-900 border border-indigo-500/40 flex items-center justify-center text-[10px] font-bold text-white">
+                            {user.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                            ) : (
+                                getInitials(user.name)
+                            )}
+                        </div>
+                        <span className="hidden lg:inline text-xs font-medium text-slate-300 max-w-[90px] truncate">
+                            {user.name?.split(' ')[0] || user.username}
+                        </span>
+                    </Link>
+                ) : null}
             </div>
         </header>
     );

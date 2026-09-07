@@ -16,7 +16,8 @@ export const generateAccessToken = (user) => {
             username: user.username,
             email: user.email,
             name: user.name,
-            role: user.role
+            role: user.role,
+            avatar: user.avatar || ''
         },
         ACCESS_TOKEN_SECRET,
         { expiresIn: '15m' }

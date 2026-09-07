@@ -1,6 +1,6 @@
 import { ProfileContext } from '../context/ProfileContext.jsx';
 import { useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { fetchRoleData, fetchUsers, assignRoleToUser, fetchAllPermissions, updateUserPermissions, fetchRoles, updateRolePermissions, createRole } from '../services/authServices.js';
 import { toast } from 'react-toastify';
 import TicketManagement from '../components/TicketManagement.jsx';
@@ -252,12 +252,20 @@ export default function Dashboard() {
                     </h1>
                     <p className="text-xs text-slate-400 mt-0.5">Role-Based Access Control, ticket support, and user administration</p>
                 </div>
-                <button
-                    onClick={handleLogout}
-                    className="scale-press px-4 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-full text-xs font-semibold transition-all border border-rose-500/30 cursor-pointer"
-                >
-                    Sign Out
-                </button>
+                <div className="flex items-center gap-3">
+                    <Link
+                        to="/profile"
+                        className="scale-press px-4 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-full text-xs font-semibold transition-all border border-indigo-500/30 cursor-pointer"
+                    >
+                        My Profile
+                    </Link>
+                    <button
+                        onClick={handleLogout}
+                        className="scale-press px-4 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-full text-xs font-semibold transition-all border border-rose-500/30 cursor-pointer"
+                    >
+                        Sign Out
+                    </button>
+                </div>
             </div>
 
             {/* Main Content */}

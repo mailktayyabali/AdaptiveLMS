@@ -260,4 +260,54 @@ export async function createRole(roleData) {
   return response.json();
 }
 
+// User Profile Management APIs
+export async function fetchMyProfile() {
+  const response = await authenticatedFetch('/api/user/profile');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch user profile');
+  }
+  return response.json();
+}
+
+export async function updateMyProfile(profileData) {
+  const response = await authenticatedFetch('/api/user/profile', {
+    method: 'PUT',
+    body: JSON.stringify(profileData)
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update profile');
+  }
+  return response.json();
+}
+
+export async function uploadAvatar(file) {
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const response = await authenticatedFetch('/api/user/avatar', {
+    method: 'POST',
+    body: formData
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to upload avatar');
+  }
+  return response.json();
+}
+
+export async function changeMyPassword(currentPassword, newPassword) {
+  const response = await authenticatedFetch('/api/user/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to change password');
+  }
+  return response.json();
+}
+
 export { login as loginUser, signup as signupUser, fetchUsers as fetchAllUsers, assignRoleToUser as assignRole};
+

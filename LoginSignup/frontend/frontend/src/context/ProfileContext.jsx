@@ -1,7 +1,12 @@
 import { createContext, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
-export const ProfileContext = createContext();
+export const ProfileContext = createContext({
+    user: null,
+    login: () => {},
+    logout: () => {},
+    updateUser: () => {}
+});
 
 export const ProfileProvider = ({ children }) => {
     // Synchronously initialize user state from localStorage so page refresh preserves logged in user
@@ -38,6 +43,20 @@ export const ProfileProvider = ({ children }) => {
         }
     };
 
+    const updateUser = (updatedData, newToken) => {
+        if (newToken) {
+            localStorage.setItem('token', newToken);
+            try {
+                const decoded = jwtDecode(newToken);
+                setUser((prev) => ({ ...prev, ...decoded, ...updatedData }));
+                return;
+            } catch (e) {
+                // fallback
+            }
+        }
+        setUser((prev) => (prev ? { ...prev, ...updatedData } : updatedData));
+    };
+
     const logout = async () => {
         try {
             await fetch('/api/logout', { method: 'POST' });
@@ -50,7 +69,7 @@ export const ProfileProvider = ({ children }) => {
     };
 
     return (
-        <ProfileContext.Provider value={{ user, login, logout }}>
+        <ProfileContext.Provider value={{ user, login, logout, updateUser }}>
             {children}
         </ProfileContext.Provider>
     );
